@@ -1,7 +1,10 @@
 {
   "name": "sheet-editor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "private": true,
-  "scripts": { "test": "node --test test/*.test.js" }
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node server/index.js"
+  }
 }

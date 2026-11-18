@@ -7,9 +7,12 @@ import {
   parseChord, chordToString, diatonicChords, ALL_KEYS,
 } from './core/music.js';
 import { renderChart } from './render/chordChart.js';
+import * as api from './api.js';
+import { exportPdf, exportJpg } from './export.js';
 
 const DOC_KEY = 'compose:doc:v1';
 const VIEW_KEY = 'compose:view:v1';
+const LOCAL_HANDLED_KEY = 'compose:local-handled:v1';
 const TIMES = ['2/4', '3/4', '4/4', '5/4', '6/8', '12/8'];
 
 const SAMPLE = `title: 예시 곡
@@ -28,24 +31,45 @@ tempo: 92
 | F | G | Em7 | A7 |
 | Dm7 | G7 | Csus4 . C . | % ||
 `;
+const sampleDoc = () => modelToDoc(parseChart(SAMPLE));
 
 const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* 저장소 사용 불가 */ } },
+};
 
 // ───────── 상태 ─────────
-let doc;
+let doc = newDoc();
 const view = { semitones: 0, altSpelling: false, showOriginal: false };
 let sel = null; // { s, m, beat }
 let bassMode = false;
 const undoStack = [];
 const redoStack = [];
 
-function loadState() {
+/** 지금 편집 중인 악보가 어디 저장되는지: 브라우저(local) 또는 서버(cloud) */
+let source = null; // { kind: 'local' } | { kind: 'cloud', id, rev }
+const auth = { enabled: false, clientId: null, user: null };
+
+const viewKey = () => (source?.kind === 'cloud' ? `compose:view:${source.id}` : VIEW_KEY);
+const defaultView = () => ({ semitones: 0, altSpelling: false, showOriginal: false });
+
+function resetEditorState(nextDoc) {
+  doc = nextDoc;
+  undoStack.length = 0;
+  redoStack.length = 0;
+  sel = null;
+  bassMode = false;
+  Object.assign(view, defaultView());
+  try { Object.assign(view, JSON.parse(store.get(viewKey()) || '{}')); } catch { /* 무시 */ }
+}
+
+function readLocalDoc() {
   try {
-    const d = localStorage.getItem(DOC_KEY);
-    doc = d ? normalizeDoc(JSON.parse(d)) : modelToDoc(parseChart(SAMPLE));
-    Object.assign(view, JSON.parse(localStorage.getItem(VIEW_KEY) || '{}'));
+    const d = store.get(DOC_KEY);
+    return d ? normalizeDoc(JSON.parse(d)) : null;
   } catch {
-    doc = modelToDoc(parseChart(SAMPLE));
+    return null;
   }
 }
 
@@ -53,12 +77,102 @@ let saveTimer;
 function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(DOC_KEY, JSON.stringify(doc));
-      localStorage.setItem(VIEW_KEY, JSON.stringify(view));
-    } catch { /* 저장소 사용 불가 */ }
+    store.set(viewKey(), JSON.stringify(view));
+    if (source?.kind === 'local') store.set(DOC_KEY, JSON.stringify(doc));
   }, 250);
+  if (source?.kind === 'cloud') cloud.schedule();
 }
+
+// ───────── 서버 저장 (자동, 0.8초 모아서) ─────────
+const cloud = {
+  lastSaved: '',
+  timer: null,
+  chain: Promise.resolve(),
+  failed: false,
+
+  dirty() { return source?.kind === 'cloud' && JSON.stringify(doc) !== this.lastSaved; },
+
+  schedule() {
+    clearTimeout(this.timer);
+    if (!this.dirty()) { if (!this.failed) setSaveState('saved'); return; }
+    setSaveState('pending');
+    this.timer = setTimeout(() => this.save(), 800);
+  },
+
+  /** 저장 요청은 한 번에 하나씩 순서대로 (rev가 꼬이지 않게) */
+  save() {
+    clearTimeout(this.timer);
+    this.chain = this.chain.then(() => this.saveOnce()).catch(() => {});
+    return this.chain;
+  },
+
+  async saveOnce() {
+    const src = source;
+    if (src?.kind !== 'cloud') return;
+    const json = JSON.stringify(doc);
+    if (json === this.lastSaved) { setSaveState('saved'); return; }
+    setSaveState('saving');
+    try {
+      const r = await api.saveChart(src.id, JSON.parse(json), src.rev);
+      src.rev = r.rev;
+      if (source === src) this.lastSaved = json;
+      this.failed = false;
+    } catch (e) {
+      if (e.status === 409 && e.data?.current) return resolveConflict(src, e.data.current);
+      this.failed = true;
+      if (e.status === 401) {
+        setSaveState('error', '로그인이 만료되어 저장하지 못했어요');
+        toast('로그인이 만료됐어요. 다른 탭에서 다시 로그인한 뒤 "저장 안 됨"을 누르세요');
+      } else {
+        setSaveState('error', e.message);
+        this.timer = setTimeout(() => this.save(), 8000);
+      }
+      return;
+    }
+    if (source === src) this.schedule();
+  },
+
+  async flush() {
+    if (this.dirty()) await this.save();
+    await this.chain;
+  },
+};
+
+async function resolveConflict(src, current) {
+  if (source !== src) return;
+  const overwrite = window.confirm('다른 기기나 탭에서 이 악보가 먼저 바뀌었어요.\n\n'
+    + '확인: 지금 화면의 내용으로 덮어쓰기\n취소: 다른 곳에서 저장한 내용 불러오기');
+  src.rev = current.rev;
+  if (overwrite) {
+    cloud.failed = false;
+    cloud.timer = setTimeout(() => cloud.save(), 0);
+  } else {
+    doc = normalizeDoc(current.doc);
+    cloud.lastSaved = JSON.stringify(doc);
+    undoStack.length = 0;
+    redoStack.length = 0;
+    fixSelection();
+    render();
+    toast('다른 곳에서 저장한 내용을 불러왔어요');
+  }
+}
+
+function setSaveState(state, detail = '') {
+  const el = $('save-state');
+  el.hidden = source?.kind !== 'cloud';
+  el.dataset.state = state;
+  el.textContent = { pending: '저장 대기', saving: '저장 중…', saved: '저장됨', error: '저장 안 됨 ↻' }[state] || '';
+  el.title = state === 'error' ? `${detail} (누르면 다시 시도)` : '서버에 자동 저장됩니다';
+  el.disabled = state !== 'error';
+}
+$('save-state').addEventListener('click', () => { cloud.failed = false; cloud.save(); });
+
+window.addEventListener('beforeunload', (e) => {
+  if (cloud.dirty()) { e.preventDefault(); e.returnValue = ''; }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && cloud.dirty()) cloud.save();
+});
 
 /** 문서 변경은 모두 여기를 거친다 (실행 취소 기록) */
 function edit(fn) {
@@ -447,9 +561,12 @@ $('show-orig').addEventListener('change', (e) => { view.showOriginal = e.target.
 // 파일
 $('btn-undo').addEventListener('click', undo);
 $('btn-redo').addEventListener('click', redo);
-$('btn-print').addEventListener('click', () => window.print());
 
-$('btn-new').addEventListener('click', () => {
+$('btn-new').addEventListener('click', async () => {
+  if (source?.kind === 'cloud') {
+    await createAndOpen(newDoc());
+    return;
+  }
   if (!window.confirm('새 악보를 만들까요? 지금 악보는 "내보내기"로 저장해 두지 않으면 사라집니다. (실행 취소로 되돌릴 수는 있어요)')) return;
   edit(() => { doc = newDoc(); });
   view.semitones = 0;
@@ -457,10 +574,12 @@ $('btn-new').addEventListener('click', () => {
   $('songinfo').open = true;
 });
 
-$('btn-export').addEventListener('click', () => {
-  const name = (doc.meta.title || 'chart').replace(/[\\/:*?"<>|]/g, '_');
-  download(`${name}.json`, JSON.stringify(doc, null, 2), 'application/json');
-});
+/** 파일 이름: 제목 (+ 조옮김한 키) */
+function fileBase() {
+  let name = (doc.meta.title || 'chart').replace(/[\\/:*?"<>|]/g, '_').trim() || 'chart';
+  if (view.semitones !== 0) name += ` (${keyToString(transposeKey(currentKey(), view.semitones, view.altSpelling))})`;
+  return name;
+}
 
 function download(filename, text, type) {
   const a = document.createElement('a');
@@ -470,13 +589,65 @@ function download(filename, text, type) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-const dlg = $('import-dlg');
-$('btn-import').addEventListener('click', () => {
-  $('import-err').hidden = true;
-  dlg.showModal();
+// 내보내기
+const exportDlg = $('export-dlg');
+$('btn-export').addEventListener('click', () => {
+  const k = prettyAccidentals(keyToString(transposeKey(currentKey(), view.semitones, view.altSpelling)));
+  $('export-note').textContent = view.semitones
+    ? `PDF·JPG는 지금 보이는 ${k} 키로 만듭니다. JSON은 원래 키(${prettyAccidentals(doc.meta.key)})로 저장됩니다.`
+    : `PDF·JPG·인쇄는 지금 보이는 악보 그대로 만듭니다.`;
+  exportDlg.showModal();
+});
+exportDlg.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-fmt]');
+  if (b) doExport(b.dataset.fmt);
 });
 
-function replaceDoc(next) {
+function busy(text) {
+  $('busy').hidden = !text;
+  $('busy-text').textContent = text || '';
+}
+
+async function doExport(fmt) {
+  exportDlg.close();
+  if (fmt === 'json') {
+    const name = (doc.meta.title || 'chart').replace(/[\\/:*?"<>|]/g, '_');
+    download(`${name}.json`, JSON.stringify(doc, null, 2), 'application/json');
+    return;
+  }
+  if (fmt === 'print') { window.print(); return; }
+  const model = docToModel(doc);
+  busy(fmt === 'pdf' ? 'PDF 만드는 중…' : 'JPG 만드는 중…');
+  try {
+    await new Promise((r) => setTimeout(r, 30)); // 오버레이가 먼저 보이게
+    if (fmt === 'pdf') await exportPdf(model, view, fileBase());
+    else await exportJpg(model, view, fileBase());
+  } catch (err) {
+    console.error(err);
+    toast(err.message || '내보내지 못했어요');
+  } finally {
+    busy('');
+  }
+}
+
+// 가져오기 (편집기: 지금 악보 바꾸기 / 홈: 새 악보로 만들기)
+const dlg = $('import-dlg');
+let importMode = 'replace';
+function openImport(mode) {
+  importMode = mode;
+  $('import-title').textContent = mode === 'new' ? '가져와서 새 악보 만들기' : '가져오기 (지금 악보를 바꿉니다)';
+  $('import-err').hidden = true;
+  dlg.showModal();
+}
+$('btn-import').addEventListener('click', () => openImport('replace'));
+$('home-import').addEventListener('click', () => openImport('new'));
+
+async function replaceDoc(next) {
+  if (importMode === 'new') {
+    dlg.close();
+    await createAndOpen(next);
+    return;
+  }
   edit(() => { doc = next; });
   view.semitones = 0;
   sel = null;
@@ -496,7 +667,7 @@ function importText(text) {
     return showImportError(model.errors.slice(0, 5).map((e) => `${e.line}행: ${e.message}`).join('\n'));
   }
   if (!model.sections.length) return showImportError('마디가 없습니다');
-  replaceDoc(modelToDoc(model));
+  return replaceDoc(modelToDoc(model));
 }
 
 $('import-go').addEventListener('click', () => importText($('import-text').value));
@@ -506,7 +677,7 @@ $('import-file').addEventListener('change', async (e) => {
   if (!file) return;
   const text = await file.text();
   if (file.name.endsWith('.json') || text.trim().startsWith('{')) {
-    try { replaceDoc(normalizeDoc(JSON.parse(text))); } catch (err) { showImportError(err.message); }
+    try { await replaceDoc(normalizeDoc(JSON.parse(text))); } catch (err) { showImportError(err.message); }
   } else {
     $('import-text').value = text;
     importText(text);
@@ -515,8 +686,9 @@ $('import-file').addEventListener('change', async (e) => {
 
 // 키보드 (데스크톱)
 document.addEventListener('keydown', (e) => {
+  if ($('editor').hidden) return;
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || dlg.open) return;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || dlg.open || exportDlg.open) return;
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); return e.shiftKey ? redo() : undo(); }
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); return redo(); }
@@ -542,7 +714,279 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); return act('add'); }
 });
 
+// ───────── 화면 전환 ─────────
+//   #/          홈 (로그인 전: 소개·로그인, 로그인 후: 악보 목록)
+//   #/c/<id>    서버에 저장된 악보 편집
+//   #/local     로그인 없이 이 브라우저에만 저장
+let routeSeq = 0;
+
+function showView(name) {
+  const inEditor = name === 'editor';
+  $('home').hidden = inEditor;
+  $('editor').hidden = !inEditor;
+  $('editor-actions').hidden = !inEditor;
+  $('btn-home').hidden = !inEditor || !auth.enabled;
+  $('account').hidden = inEditor || !auth.user;
+  document.body.classList.toggle('in-editor', inEditor);
+  if (!inEditor) {
+    $('save-state').hidden = true;
+    document.body.classList.remove('panel-open');
+    document.title = auth.user ? '내 악보 — Compose' : 'Compose — 코드 악보';
+  }
+}
+
+function go(hash) {
+  if (location.hash === hash || (hash === '#/' && !location.hash)) route();
+  else location.hash = hash;
+}
+
+async function route() {
+  const seq = ++routeSeq;
+  try { await cloud.flush(); } catch { /* 저장 실패는 표시에 남아 있음 */ }
+  if (seq !== routeSeq) return;
+  const h = location.hash;
+  const m = /^#\/c\/([a-f0-9]{24})$/.exec(h);
+  if (m) {
+    if (!auth.user) return go('#/');
+    return openCloud(m[1], seq);
+  }
+  if (h === '#/local' || !auth.enabled) return openLocal();
+  return showHome(seq);
+}
+window.addEventListener('hashchange', route);
+$('btn-home').addEventListener('click', () => go('#/'));
+
+function openLocal() {
+  source = { kind: 'local' };
+  resetEditorState(readLocalDoc() || sampleDoc());
+  showView('editor');
+  render();
+}
+
+async function openCloud(id, seq) {
+  source = null;
+  showView('editor');
+  chartEl.innerHTML = '<p class="empty">불러오는 중…</p>';
+  $('panel').hidden = true;
+  let rec;
+  try {
+    rec = await api.getChart(id);
+  } catch (e) {
+    if (seq !== routeSeq) return;
+    if (e.status === 401) { auth.user = null; toast('다시 로그인하세요'); }
+    else toast(e.status === 404 ? '악보를 찾을 수 없어요' : e.message);
+    return go('#/');
+  }
+  if (seq !== routeSeq) return;
+  source = { kind: 'cloud', id, rev: rec.rev };
+  resetEditorState(normalizeDoc(rec.doc));
+  cloud.lastSaved = JSON.stringify(doc);
+  cloud.failed = false;
+  render();
+  if (!doc.meta.title && doc.sections.every((s) => s.measures.every((mm) => !mm.chords.length))) $('songinfo').open = true;
+}
+
+async function createAndOpen(nextDoc) {
+  try {
+    busy('새 악보 만드는 중…');
+    await cloud.flush();
+    const chart = await api.createChart(nextDoc);
+    go(`#/c/${chart.id}`);
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    busy('');
+  }
+}
+
+// ───────── 홈 ─────────
+let charts = [];
+
+async function showHome(seq) {
+  source = null;
+  showView('home');
+  $('home-guest').hidden = Boolean(auth.user);
+  $('home-user').hidden = !auth.user;
+  if (!auth.user) return renderGuest();
+
+  $('acct-name').textContent = auth.user.name || auth.user.email;
+  $('acct-name').title = auth.user.email;
+  $('acct-pic').hidden = !auth.user.picture;
+  if (auth.user.picture) $('acct-pic').src = auth.user.picture;
+  renderLocalBanner();
+
+  $('list-state').textContent = '불러오는 중…';
+  try {
+    const list = await api.listCharts();
+    if (seq !== routeSeq) return;
+    charts = list;
+    renderList();
+  } catch (e) {
+    if (seq !== routeSeq) return;
+    if (e.status === 401) { auth.user = null; return showHome(seq); }
+    $('list-state').textContent = e.message;
+  }
+}
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[c]));
+
+function ago(iso) {
+  const t = new Date(iso);
+  const diff = (Date.now() - t) / 1000;
+  if (diff < 60) return '방금';
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}일 전`;
+  return t.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function renderList() {
+  const q = $('chart-search').value.trim().toLowerCase();
+  const shown = q ? charts.filter((c) => `${c.title} ${c.artist}`.toLowerCase().includes(q)) : charts;
+  $('list-state').textContent = charts.length === 0
+    ? '아직 악보가 없어요. "＋ 새 악보"로 시작하거나 JSON·텍스트 악보를 가져오세요.'
+    : q ? `${shown.length}개 찾음` : `${charts.length}개`;
+  $('chart-list').innerHTML = shown.map((c) => `
+    <li class="ci">
+      <a class="ci-open" href="#/c/${c.id}">
+        <strong class="ci-title">${esc(c.title || '제목 없음')}</strong>
+        <span class="ci-sub">${[c.artist && esc(c.artist), esc(prettyAccidentals(c.key)), esc(c.time), `${c.measures}마디`].filter(Boolean).join(' · ')}</span>
+        <span class="ci-date" title="${esc(new Date(c.updatedAt).toLocaleString('ko-KR'))}">${ago(c.updatedAt)}</span>
+      </a>
+      <span class="ci-tools">
+        <button type="button" data-dup="${c.id}">복제</button>
+        <button type="button" data-del="${c.id}" class="danger">삭제</button>
+      </span>
+    </li>`).join('');
+}
+$('chart-search').addEventListener('input', renderList);
+$('home-new').addEventListener('click', () => createAndOpen(newDoc()));
+
+$('chart-list').addEventListener('click', async (e) => {
+  const dup = e.target.closest('[data-dup]')?.dataset.dup;
+  const del = e.target.closest('[data-del]')?.dataset.del;
+  try {
+    if (dup) {
+      const rec = await api.getChart(dup);
+      const copy = normalizeDoc(rec.doc);
+      copy.meta.title = `${copy.meta.title || '제목 없음'} (사본)`;
+      await api.createChart(copy);
+      toast('복제했어요');
+      showHome(routeSeq);
+    } else if (del) {
+      const c = charts.find((x) => x.id === del);
+      if (!window.confirm(`"${c?.title || '제목 없음'}" 악보를 지울까요?`)) return;
+      await api.deleteChart(del);
+      toast('지웠어요');
+      showHome(routeSeq);
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+// 로그인 전에 이 브라우저에 만들어 둔 악보를 계정으로 옮기기
+const localSig = (d) => JSON.stringify(d);
+function pendingLocalDoc() {
+  const d = readLocalDoc();
+  if (!d) return null;
+  const sig = localSig(d);
+  if (sig === localSig(sampleDoc()) || sig === store.get(LOCAL_HANDLED_KEY)) return null;
+  return d;
+}
+function renderLocalBanner() {
+  const d = pendingLocalDoc();
+  $('local-banner').hidden = !d;
+  if (d) $('local-banner-text').textContent = `이 브라우저에만 저장된 악보 "${d.meta.title || '제목 없음'}"이 있어요.`;
+}
+$('local-move').addEventListener('click', async () => {
+  const d = pendingLocalDoc();
+  if (!d) return;
+  try {
+    const chart = await api.createChart(d);
+    store.set(LOCAL_HANDLED_KEY, localSig(d));
+    go(`#/c/${chart.id}`);
+  } catch (e) {
+    toast(e.message);
+  }
+});
+$('local-dismiss').addEventListener('click', () => {
+  const d = readLocalDoc();
+  if (d) store.set(LOCAL_HANDLED_KEY, localSig(d));
+  $('local-banner').hidden = true;
+});
+
+// ───────── Google 로그인 ─────────
+let gsiPromise = null;
+function loadGsi() {
+  gsiPromise ??= new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = resolve;
+    s.onerror = () => { gsiPromise = null; reject(new Error('Google 로그인 버튼을 불러오지 못했어요')); };
+    document.head.append(s);
+  }).then(() => {
+    window.google.accounts.id.initialize({
+      client_id: auth.clientId,
+      callback: onCredential,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+      context: 'signin',
+      ux_mode: 'popup',
+    });
+  });
+  return gsiPromise;
+}
+
+function loginMessage(msg) {
+  $('login-msg').textContent = msg || '';
+  $('login-msg').hidden = !msg;
+}
+
+async function renderGuest() {
+  loginMessage('');
+  $('gsi-btn').hidden = !auth.enabled;
+  if (!auth.enabled) return;
+  try {
+    await loadGsi();
+    $('gsi-btn').innerHTML = '';
+    window.google.accounts.id.renderButton($('gsi-btn'), {
+      theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko', width: 280,
+    });
+  } catch (e) {
+    loginMessage(e.message);
+  }
+}
+
+async function onCredential(resp) {
+  loginMessage('');
+  try {
+    auth.user = await api.login(resp.credential);
+    go('#/');
+  } catch (e) {
+    loginMessage(e.message);
+  }
+}
+
+$('btn-logout').addEventListener('click', async () => {
+  try { await api.logout(); } catch { /* 쿠키만 지우면 됨 */ }
+  try { window.google?.accounts.id.disableAutoSelect(); } catch { /* 무시 */ }
+  auth.user = null;
+  charts = [];
+  go('#/');
+});
+
 // 시작
-loadState();
-render();
-window.__compose = { get doc() { return doc; }, keyToString, cloneDoc };
+(async () => {
+  const cfg = await api.config();
+  auth.enabled = Boolean(cfg?.loginEnabled);
+  auth.clientId = cfg?.googleClientId || null;
+  if (auth.enabled) {
+    try { auth.user = await api.me(); } catch { auth.user = null; }
+  }
+  await route();
+})();
+window.__compose = { get doc() { return doc; }, get source() { return source; }, keyToString, cloneDoc };

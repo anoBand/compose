@@ -8,17 +8,62 @@
 </head>
 <body>
   <header class="topbar">
-    <strong class="brand">Compose</strong>
-    <div class="actions">
+    <div class="tb-left">
+      <button id="btn-home" type="button" class="back" hidden aria-label="악보 목록으로">‹<span class="lbl"> 목록</span></button>
+      <a class="brand" href="#/">Compose</a>
+      <button id="save-state" type="button" class="save-state" hidden></button>
+    </div>
+    <div class="actions" id="editor-actions" hidden>
       <button id="btn-undo" type="button" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">↶</button>
       <button id="btn-redo" type="button" title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행">↷</button>
       <button id="btn-new" type="button">새 악보</button>
       <button id="btn-import" type="button">가져오기</button>
       <button id="btn-export" type="button">내보내기</button>
-      <button id="btn-print" type="button">인쇄</button>
+    </div>
+    <div class="account" id="account" hidden>
+      <img id="acct-pic" class="acct-pic" alt="" referrerpolicy="no-referrer" hidden>
+      <span id="acct-name" class="acct-name"></span>
+      <button id="btn-logout" type="button">로그아웃</button>
     </div>
   </header>
 
+  <!-- 홈: 로그인 / 악보 목록 -->
+  <main id="home" class="home" hidden>
+    <section id="home-guest" class="hero" hidden>
+      <h1>Compose</h1>
+      <p class="lead">화면을 눌러 바로 만드는 코드 악보 편집기</p>
+      <ul class="features">
+        <li>Google 계정으로 로그인하면 악보가 서버에 저장되어 휴대폰·PC 어디서나 열 수 있어요</li>
+        <li>조옮김, 반복 기호, 박자 변경, 다이어토닉 코드 입력</li>
+        <li>PDF·JPG로 내보내기</li>
+      </ul>
+      <div id="gsi-btn" class="gsi-btn"></div>
+      <p id="login-msg" class="err-text" hidden></p>
+      <a id="btn-local" class="local-link" href="#/local">로그인 없이 쓰기 <small>(이 브라우저에만 저장)</small></a>
+    </section>
+
+    <section id="home-user" class="library" hidden>
+      <div class="home-head">
+        <h1>내 악보</h1>
+        <div class="home-actions">
+          <input id="chart-search" type="search" placeholder="제목·아티스트 검색" autocomplete="off" aria-label="악보 검색">
+          <button id="home-import" type="button">가져오기</button>
+          <button id="home-new" type="button" class="primary">＋ 새 악보</button>
+        </div>
+      </div>
+      <div id="local-banner" class="banner" hidden>
+        <span id="local-banner-text"></span>
+        <span class="banner-actions">
+          <button id="local-move" type="button" class="primary">내 악보로 옮기기</button>
+          <button id="local-dismiss" type="button">닫기</button>
+        </span>
+      </div>
+      <p id="list-state" class="muted list-state"></p>
+      <ul id="chart-list" class="chart-list"></ul>
+    </section>
+  </main>
+
+  <div id="editor" class="editor" hidden>
   <details class="songinfo" id="songinfo">
     <summary><span id="song-summary">곡 정보</span></summary>
     <div class="fields">
@@ -98,9 +143,11 @@
     </div>
   </section>
 
+  </div>
+
   <dialog id="import-dlg">
     <form method="dialog" class="dlg">
-      <h2>가져오기</h2>
+      <h2 id="import-title">가져오기</h2>
       <p class="muted">JSON 파일을 열거나, 텍스트 악보를 붙여넣으세요.</p>
       <label class="btn file-btn">파일 열기 (.json / .txt)<input id="import-file" type="file" accept=".json,.txt,application/json,text/plain" hidden></label>
       <textarea id="import-text" rows="10" spellcheck="false" placeholder="key: C&#10;[Verse]&#10;| C | G/B | Am | F G |"></textarea>
@@ -121,6 +168,21 @@
     </form>
   </dialog>
 
+  <dialog id="export-dlg">
+    <form method="dialog" class="dlg">
+      <h2>내보내기</h2>
+      <p class="muted" id="export-note"></p>
+      <div class="export-grid">
+        <button type="button" data-fmt="pdf"><strong>PDF</strong><small>A4 쪽 나눔, 인쇄용</small></button>
+        <button type="button" data-fmt="jpg"><strong>JPG</strong><small>이미지 한 장</small></button>
+        <button type="button" data-fmt="json"><strong>JSON</strong><small>다시 가져오기용 원본</small></button>
+        <button type="button" data-fmt="print"><strong>인쇄</strong><small>브라우저 인쇄 창</small></button>
+      </div>
+      <div class="dlg-actions"><button value="cancel" type="submit">닫기</button></div>
+    </form>
+  </dialog>
+
+  <div id="busy" class="busy" hidden><div class="busy-box"><span class="spinner"></span><span id="busy-text"></span></div></div>
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script type="module" src="src/app.js"></script>
