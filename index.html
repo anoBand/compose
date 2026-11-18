@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>악보 편집기 — 코드 악보</title>
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <strong class="brand">코드 악보</strong>
+    <div class="file-actions">
+      <button id="btn-new" type="button">새 악보</button>
+      <label class="btn" for="file-open">열기</label>
+      <input id="file-open" type="file" accept=".txt,.chart,text/plain" hidden>
+      <button id="btn-save" type="button">저장</button>
+      <button id="btn-print" type="button">인쇄</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="edit" aria-selected="true">편집</button>
+    <button type="button" role="tab" data-tab="view" aria-selected="false">보기</button>
+  </nav>
+
+  <main class="layout" data-active="edit">
+    <section class="pane pane-edit" aria-label="편집">
+      <div class="quickbar" aria-label="빠른 입력">
+        <button type="button" data-ins=" | ">|</button>
+        <button type="button" data-ins=" . ">.</button>
+        <button type="button" data-ins=" % ">%</button>
+        <button type="button" data-ins="|: ">|:</button>
+        <button type="button" data-ins=" :|">:|</button>
+        <button type="button" data-ins="#">#</button>
+        <button type="button" data-ins="b">b</button>
+        <button type="button" data-ins="m">m</button>
+        <button type="button" data-ins="7">7</button>
+        <button type="button" data-ins="maj7">maj7</button>
+        <button type="button" data-ins="/">/</button>
+        <button type="button" data-ins="&#10;[구간]&#10;" data-select="구간">[ ]</button>
+      </div>
+      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+      <ul id="errors" class="errors" aria-live="polite"></ul>
+      <details class="help">
+        <summary>입력 문법</summary>
+        <pre>title: 제목      artist: 아티스트
+key: C          time: 4/4      tempo: 90
+
+[Verse]                  구간 이름
+| C | G/B | Am | F G |   한 줄 = 한 행, 코드는 마디 안에 고르게 나눔
+| C . . G |              각 토큰 1박, "." = 앞 코드 유지
+|: Am | % :|x3           반복 시작/끝(횟수), % = 앞 마디 반복
+| {3/4} C | G ||         박자 변경, || = 겹세로줄
+# 주석</pre>
+      </details>
+    </section>
+
+    <section class="pane pane-view" aria-label="보기">
+      <div class="viewbar">
+        <div class="transpose" role="group" aria-label="조옮김">
+          <button id="tr-down" type="button" aria-label="반음 내리기">−</button>
+          <span id="tr-value" class="tr-value">0</span>
+          <button id="tr-up" type="button" aria-label="반음 올리기">+</button>
+          <button id="tr-reset" type="button">원래 키</button>
+        </div>
+        <button id="tr-alt" type="button" class="toggle" aria-pressed="false" hidden>F♯ / G♭</button>
+        <label class="check"><input id="show-orig" type="checkbox"> 원래 코드 함께</label>
+      </div>
+      <article id="chart" class="chart"></article>
+    </section>
+  </main>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
