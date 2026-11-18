@@ -1,44 +1,69 @@
-# 악보 편집기 — MVP 1: 코드 악보
+# Compose — 코드 악보 편집기
 
-빌드 없이 동작하는 정적 웹앱입니다. 텍스트로 코드 악보를 입력하면 오른쪽(모바일은 "보기" 탭)에 차트가 그려집니다.
+악보 화면을 직접 눌러서 편집하는 코드 악보 웹앱입니다. 빌드 없이 정적 파일만으로 동작합니다.
 
-## 기능
-- 마디/박자: 마디 안 코드를 박에 고르게 나눔, `.`로 박 지정, 박 수가 안 맞으면 줄 번호와 함께 오류 표시
-- 구간 표기: `[Intro]`, `[Verse]` …
-- 반복: `|:` `:|` `:|x3`, `%`(앞 마디 반복), `||` 겹세로줄, `{3/4}` 박자 변경
-- 조옮김: 원본 텍스트는 그대로 두고 보기만 옮김. `C Key +2 › D Key`로 표시하고, 바뀐 코드는 파란색
-  - 원래 키에서의 도수를 유지해 철자를 정함 (C키 Bb → D키 C)
-  - 키 이름은 플랫 우선(Db, Eb, Gb, Ab, Bb). F♯/G♭처럼 겹치는 키는 버튼으로 전환
-  - E♯·B♯·C♭·F♭ 같은 철자는 F·C·B·E로 단순화
-- "원래 코드 함께" 체크 시 옮긴 코드 위에 원래 코드를 작게 표시
-- 모바일 편집: 편집/보기 탭, `|` `.` `%` 등 빠른 입력 버튼
-- 자동 저장(localStorage), `.txt` 저장/열기, 인쇄(악보만 출력)
+## 사용법
+- **마디를 누르면** 아래에 입력 패널이 열립니다.
+  - 박 버튼(1~4)으로 코드를 넣을 박을 고르고, 코드는 다음 코드가 나올 때까지 유지됩니다.
+  - 다이어토닉 줄(I ii iii …)을 누르면 현재 키의 코드가 한 번에 들어갑니다.
+  - 근음 → ♯/♭ → 종류(m, 7, maj7 …) 순서로 조합하고, ／ 다음에 근음을 누르면 슬래시 베이스가 됩니다.
+  - 마디 도구: 추가, 복제, 삭제, % 반복, 줄바꿈, 반복 시작/끝(누를 때마다 ×2 → ×3 → ×4 → 해제), 겹세로줄, 박자 변경
+  - 구간: 추가, 이름 바꾸기, 삭제
+- **조옮김**: 원본은 그대로 두고 보기만 옮깁니다. `C Key +2 › D Key`로 표시하고, 바뀐 코드는 파란색입니다. 조옮김 보기 중에는 편집이 잠깁니다.
+- **실행 취소/다시 실행**, 자동 저장(브라우저), **내보내기(JSON)**, 가져오기(JSON 또는 텍스트 악보 붙여넣기), 인쇄
 
-## 실행
-ES 모듈을 쓰므로 `file://`로는 열리지 않고, 정적 서버가 필요합니다.
+### 데스크톱 단축키
+| 키 | 동작 |
+| --- | --- |
+| ← → | 이전/다음 마디 |
+| Space, Tab | 다음 박 (마지막 박이면 다음 마디) |
+| A–G | 근음 입력 |
+| `#` / `-` | ♯ / ♭ |
+| `m`, `7` | 마이너, 7 추가 |
+| `/` 후 A–G | 슬래시 베이스 |
+| Delete | 선택한 박의 코드 지우기 |
+| Enter | 뒤에 마디 추가 |
+| Ctrl+Z / Ctrl+Shift+Z | 실행 취소 / 다시 실행 |
+| Esc | 패널 닫기 |
 
-```bash
-python3 -m http.server 8080   # 개발용
-npm test                      # 코어 단위 테스트 (Node 18+)
-```
-
-## 배포 (nginx)
-`index.html`과 `src/` 폴더만 웹 루트에 복사하면 됩니다.
-
-```bash
-docker run -d --name sheet-editor -p 8081:80 \
-  -v "$PWD":/usr/share/nginx/html:ro nginx:alpine
+## 저장 형식 (JSON)
+```json
+{
+  "version": 1,
+  "meta": { "title": "", "artist": "", "key": "C", "time": { "beats": 4, "unit": 4 }, "tempo": 92 },
+  "sections": [{ "name": "Verse", "measures": [{
+    "chords": [{ "beat": 0, "text": "C" }, { "beat": 2, "text": "G/B" }],
+    "simile": false, "repeatStart": false, "repeatEnd": false, "repeatCount": 2,
+    "doubleBar": false, "time": null, "lineBreak": false
+  }] }]
+}
 ```
 
 ## 구조
 ```
-src/core/music.js        음이름·키·코드 파싱과 조옮김 (DOM 없음, 다른 프로젝트에서 재사용 가능)
-src/core/parser.js       텍스트 문법 → 악보 모델, 마디 검증
-src/render/chordChart.js 악보 모델 → HTML
-src/app.js               편집기 UI, 상태, 저장
+src/core/music.js        음이름·키·코드 파싱, 도수 기반 조옮김, 다이어토닉 (DOM 없음)
+src/core/doc.js          JSON 문서 ↔ 렌더 모델 변환
+src/core/parser.js       텍스트 악보 → 모델 (가져오기 전용)
+src/render/chordChart.js 모델 → HTML
+src/app.js               편집 UI, 실행 취소, 저장
+deploy/update.sh         서버 자동 배포 스크립트
 ```
 
-## 다음 단계 (MVP 2~)
-- 1·2번 반복 괄호(볼타), D.S./Coda
-- 서버 저장(악보 목록, 공유 링크)
-- alphaTab으로 일반 악보 + TAB 보기
+## 개발
+```bash
+python3 -m http.server 8080   # ES 모듈이라 file:// 로는 안 열림
+npm test                      # 단위 테스트 (Node 18+)
+```
+
+## 서버 배포
+웹 루트에는 `index.html`과 `src/`만 있으면 됩니다.
+
+```bash
+git clone https://github.com/anoBand/compose.git /srv/compose
+docker run -d --name compose --restart unless-stopped -p 8081:80 \
+  -v /srv/compose:/usr/share/nginx/html:ro nginx:alpine
+# 자동 반영 (crontab -e)
+*/10 * * * * /srv/compose/deploy/update.sh >> ~/coding-proj/compose-deploy.log 2>&1        # 최신 v* 태그
+*/10 * * * * REPO_DIR=/srv/compose-dev /srv/compose-dev/deploy/update.sh main >> ...       # 개발용: main
+```
+릴리스는 `git tag v0.2.0 && git push --tags`로 만듭니다.

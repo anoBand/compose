@@ -54,22 +54,30 @@ export function renderChart(model, view = {}) {
     if (m.repeatEnd) cls.push('re');
     if (m.doubleBar) cls.push('dbl');
     if (m.error) cls.push('err');
+    const sel = view.selected && m.ref && view.selected.s === m.ref.s && view.selected.m === m.ref.m;
+    if (sel) cls.push('sel');
+    const chars = m.simile ? 0 : m.chords.reduce((n, c) => n + c.text.length, 0) + Math.max(0, m.chords.length - 1);
+    if (chars > 11) cls.push('xdense'); else if (chars > 7) cls.push('dense');
     const body = m.simile
       ? `<span class="simile">%</span>`
-      : m.chords.length ? m.chords.map(chordHtml).join('')
-        : `<span class="chord bad">${esc(m.raw || '?')}</span>`;
+      : m.chords.length
+        ? (m.chords[0].beat > 0 ? `<span class="chord gap" style="--dur:${m.chords[0].beat}"></span>` : '')
+          + m.chords.map(chordHtml).join('')
+        : m.raw ? `<span class="chord bad">${esc(m.raw)}</span>` : '<span class="chord gap"></span>';
     const extras = [
       i === 0 ? `<span class="mnum">${m.number}</span>` : '',
       m.timeChange ? `<span class="tsig">${m.time.beats}/${m.time.unit}</span>` : '',
       m.repeatEnd && m.repeatCount !== 2 ? `<span class="rcount">×${m.repeatCount}</span>` : '',
     ].join('');
     const title = m.error ? ` title="${esc(m.error)}"` : '';
-    return `<div class="${cls.join(' ')}" data-line="${m.line}" style="--beats:${m.time.beats}"${title}>${extras}<div class="beats">${body}</div></div>`;
+    const refAttr = m.ref ? ` data-s="${m.ref.s}" data-m="${m.ref.m}"` : '';
+    return `<div class="${cls.join(' ')}"${refAttr} data-line="${m.line ?? ''}" style="--beats:${m.time.beats}"${title}>${extras}<div class="beats">${body}</div></div>`;
   };
 
-  const sections = model.sections.map((s) => `
-    <section class="sec">
+  const sections = model.sections.map((s, si) => `
+    <section class="sec${view.selected?.s === si ? ' cur' : ''}" data-sec="${si}">
       ${s.name ? `<h2 class="sec-name">${esc(s.name)}</h2>` : ''}
+      ${s.rows.length === 0 ? '<p class="empty">빈 구간</p>' : ''}
       ${s.rows.map((row) => `<div class="row">${row.map(measureHtml).join('')}</div>`).join('')}
     </section>`).join('');
 

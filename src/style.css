@@ -41,47 +41,23 @@ button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); out
 /* 상단 */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
-  padding: .6rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel);
+  padding: .55rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel);
+  position: sticky; top: 0; z-index: 5;
 }
 .brand { font-size: 1rem; letter-spacing: -.01em; }
-.file-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+.actions { display: flex; gap: .35rem; flex-wrap: wrap; }
+#btn-undo, #btn-redo { width: 2.4rem; padding: 0; font-size: 1.1rem; }
+button:disabled { opacity: .4; cursor: default; }
 
-.tabs { display: none; }
-
-/* 레이아웃: 데스크톱은 좌우 분할 */
-.layout {
-  flex: 1; display: grid; grid-template-columns: minmax(300px, 38%) 1fr; min-height: 0;
+.songinfo { border-bottom: 1px solid var(--line); background: var(--panel); }
+.songinfo summary { padding: .5rem 1rem; cursor: pointer; font-size: .9rem; color: var(--muted); }
+.songinfo .fields { display: flex; flex-wrap: wrap; gap: .5rem .9rem; padding: 0 1rem .75rem; }
+.songinfo label { display: flex; flex-direction: column; gap: .2rem; font-size: .78rem; color: var(--muted); }
+input, select {
+  font: inherit; font-size: .95rem; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: .4rem .55rem; min-height: 2.25rem;
 }
-.pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.pane-edit { border-right: 1px solid var(--line); background: var(--panel); }
-
-.quickbar {
-  display: flex; gap: .3rem; padding: .5rem; overflow-x: auto; border-bottom: 1px solid var(--line);
-  scrollbar-width: none;
-}
-.quickbar button {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  min-width: 2.5rem; padding: .3rem .55rem; flex: none;
-}
-
-#source {
-  flex: 1; min-height: 16rem; width: 100%; resize: none; border: 0; outline: 0;
-  padding: .9rem 1rem; background: transparent; color: var(--ink);
-  font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, "D2Coding", monospace;
-  tab-size: 2;
-}
-
-.errors { list-style: none; margin: 0; padding: 0; }
-.errors:empty { display: none; }
-.errors li button {
-  width: 100%; justify-content: flex-start; text-align: left; border: 0; border-radius: 0;
-  border-top: 1px solid var(--line); background: var(--danger-soft); color: var(--danger);
-  font-size: .85rem;
-}
-
-.help { border-top: 1px solid var(--line); padding: .5rem 1rem; font-size: .85rem; color: var(--muted); }
-.help summary { cursor: pointer; }
-.help pre { font-size: .78rem; line-height: 1.5; overflow-x: auto; margin: .5rem 0 0; }
+#f-title { width: 14rem; } #f-artist { width: 10rem; } #f-tempo { width: 6rem; }
 
 /* 보기 */
 .viewbar {
@@ -94,7 +70,11 @@ button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); out
 .toggle[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
 .check { display: inline-flex; align-items: center; gap: .35rem; font-size: .9rem; color: var(--muted); }
 
-.chart { flex: 1; overflow: auto; padding: 1.5rem clamp(1rem, 4vw, 3rem) 3rem; }
+.chart-wrap { flex: 1; }
+.chart { padding: 1.5rem clamp(1rem, 4vw, 3rem) 1rem; max-width: 1100px; }
+.hint { margin: 0; padding: 0 clamp(1rem, 4vw, 3rem) 2rem; color: var(--muted); font-size: .85rem; }
+.panel-open .hint { display: none; }
+.lock-note { margin: .75rem clamp(1rem, 4vw, 3rem) 0; padding: .5rem .75rem; border-radius: 8px; background: var(--accent-soft); font-size: .85rem; }
 .chart-head { margin-bottom: 1.5rem; }
 .chart-head h1 { margin: 0; font-size: 1.6rem; letter-spacing: -.02em; }
 .artist { margin: .2rem 0 0; color: var(--muted); }
@@ -131,6 +111,11 @@ button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); out
 .m.re { border-right: 4px double var(--bar) !important; padding-right: 1rem; }
 .m.re::after { right: 5px; }
 .m.err { background: var(--danger-soft); }
+.m[data-s] { cursor: pointer; scroll-margin: 5rem 0 21rem; }
+.m[data-s]:hover { background: color-mix(in srgb, var(--accent-soft) 50%, transparent); }
+.m.sel { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.chord.gap { min-width: 0; }
+.sec.cur .sec-name { border-color: var(--accent); color: var(--accent); }
 
 .beats { display: flex; align-items: flex-end; gap: .3rem; }
 .chord {
@@ -147,34 +132,91 @@ button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); out
 .tsig { position: absolute; top: .1rem; left: 1.7rem; font-size: .7rem; font-weight: 700; }
 .rcount { position: absolute; top: .1rem; right: .5rem; font-size: .75rem; font-weight: 700; }
 
-/* 모바일: 탭 전환 */
+/* 편집 패널 (하단 고정) */
+.panel {
+  position: sticky; bottom: 0; z-index: 6;
+  background: var(--panel); border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 20px rgb(0 0 0 / .08);
+  padding: .4rem 0 calc(.4rem + env(safe-area-inset-bottom));
+}
+.p-row { display: flex; align-items: center; gap: .35rem; padding: .25rem .75rem; }
+.p-row.scroll { overflow-x: auto; scrollbar-width: none; }
+.p-row.scroll::-webkit-scrollbar { display: none; }
+.p-row > * { flex: none; }
+.p-row button { min-height: 2.5rem; min-width: 2.5rem; padding: .25rem .6rem; }
+.p-head { flex-wrap: nowrap; }
+.p-title { font-size: .8rem; font-weight: 700; margin-right: .1rem; max-width: 5.5rem; line-height: 1.2; }
+.p-beats { display: flex; gap: .3rem; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.p-beats .beat { flex-direction: column; min-width: 3.4rem; padding: .15rem .4rem; line-height: 1.1; }
+.p-beats .beat small { font-size: .65rem; color: var(--muted); }
+.p-beats .beat span { font-weight: 700; }
+.p-beats .beat.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.p-beats .beat:not(.has) span { color: var(--muted); }
+#p-close { margin-left: auto; }
+.dia { flex-direction: column; line-height: 1.1; font-weight: 700; min-width: 3.2rem; }
+.dia small { font-size: .62rem; font-weight: 500; color: var(--muted); }
+#p-roots button[data-root] { font-weight: 700; min-width: 2.7rem; }
+.sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 .2rem; }
+.tools button { font-size: .85rem; }
+.inline { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem; color: var(--muted); }
+.inline select { min-height: 2.5rem; }
+
+/* 가져오기 */
+dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--panel); color: var(--ink); width: min(560px, 94vw); }
+dialog::backdrop { background: rgb(0 0 0 / .35); }
+.dlg { display: flex; flex-direction: column; gap: .6rem; padding: 1rem 1.1rem; }
+.dlg h2 { margin: 0; font-size: 1.1rem; }
+.muted { margin: 0; color: var(--muted); font-size: .88rem; }
+.file-btn { align-self: flex-start; }
+#import-text { font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: .6rem; background: var(--bg); color: var(--ink); resize: vertical; }
+.help { font-size: .85rem; color: var(--muted); }
+.help summary { cursor: pointer; }
+.help pre { font-size: .76rem; overflow-x: auto; margin: .4rem 0 0; }
+.err-text { margin: 0; white-space: pre-line; color: var(--danger); font-size: .85rem; }
+.dlg-actions { display: flex; justify-content: flex-end; gap: .5rem; }
+.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: .55rem .9rem; border-radius: 999px; font-size: .88rem; z-index: 20;
+  max-width: 90vw;
+}
+.panel-open .toast { bottom: auto; top: 4.2rem; }
+
+/* 모바일 */
 @media (max-width: 760px) {
-  .topbar { padding: .5rem .75rem; }
+  .topbar { padding: .45rem .6rem; }
   .brand { display: none; }
-  .file-actions { width: 100%; justify-content: space-between; }
-  .file-actions > * { flex: 1; }
-  .tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line); background: var(--panel); }
-  .tabs button { border: 0; border-radius: 0; border-bottom: 2px solid transparent; min-height: 2.75rem; }
-  .tabs button[aria-selected="true"] { border-bottom-color: var(--accent); font-weight: 700; }
-  .layout { grid-template-columns: 1fr; }
-  .layout[data-active="edit"] .pane-view, .layout[data-active="view"] .pane-edit { display: none; }
-  .pane-edit { border-right: 0; }
-  .quickbar button { min-height: 2.75rem; min-width: 2.9rem; }
-  .chart { padding: 1rem .75rem 2rem; }
+  .actions { width: 100%; flex-wrap: nowrap; }
+  .actions > button { flex: 1 1 auto; padding: .3rem .4rem; font-size: .85rem; }
+  .songinfo .fields { padding: 0 .75rem .75rem; }
+  #f-title, #f-artist { width: 100%; }
+  .songinfo label:nth-child(-n+2) { flex: 1 1 100%; }
+  .viewbar { padding: .4rem .75rem; }
+  .chart { padding: 1rem .75rem .75rem; }
+  .hint { padding: 0 .75rem 1.5rem; }
   .m { min-width: 0; min-height: 2.9rem; padding: 1rem .25rem .4rem .35rem; }
   .m.rs { padding-left: .85rem; }
   .m.re { padding-right: .7rem; }
   .beats { gap: .2rem; }
   .mnum { left: .2rem; }
   :root { --chord-size: .95rem; }
+  .m.dense .chord { font-size: .8rem; }
+  .m.xdense .chord { font-size: .68rem; letter-spacing: -.02em; }
+  .m.dense .beats, .m.xdense .beats { gap: .12rem; }
+  .p-row { padding: .2rem .5rem; }
+  .p-beats .beat { min-width: 2.6rem; padding: .15rem .25rem; }
+  #p-clear, #p-close { min-width: 2.4rem; padding: 0 .4rem; }
+  #p-roots { gap: .25rem; }
+  #p-roots button { min-width: 2.05rem; padding: 0 .2rem; }
+  #p-roots .sep { margin: 0; }
 }
 
 /* 인쇄: 악보만 */
 @media print {
-  .topbar, .tabs, .pane-edit, .viewbar { display: none !important; }
-  .layout { display: block; }
-  .layout .pane-view { display: block !important; }
-  .chart { overflow: visible; padding: 0; }
+  .topbar, .songinfo, .viewbar, .panel, .hint, .lock-note, .toast { display: none !important; }
+  .chart { padding: 0; }
+  .m.sel { background: none; box-shadow: none; }
   :root { --accent: #1f5fd1; --bar: #000; --ink: #000; --muted: #555; }
   body { background: #fff; }
   .row { break-inside: avoid; }

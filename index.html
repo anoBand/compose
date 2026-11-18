@@ -3,72 +3,125 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>악보 편집기 — 코드 악보</title>
+  <title>Compose — 코드 악보</title>
   <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
   <header class="topbar">
-    <strong class="brand">코드 악보</strong>
-    <div class="file-actions">
+    <strong class="brand">Compose</strong>
+    <div class="actions">
+      <button id="btn-undo" type="button" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">↶</button>
+      <button id="btn-redo" type="button" title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행">↷</button>
       <button id="btn-new" type="button">새 악보</button>
-      <label class="btn" for="file-open">열기</label>
-      <input id="file-open" type="file" accept=".txt,.chart,text/plain" hidden>
-      <button id="btn-save" type="button">저장</button>
+      <button id="btn-import" type="button">가져오기</button>
+      <button id="btn-export" type="button">내보내기</button>
       <button id="btn-print" type="button">인쇄</button>
     </div>
   </header>
 
-  <nav class="tabs" role="tablist">
-    <button type="button" role="tab" data-tab="edit" aria-selected="true">편집</button>
-    <button type="button" role="tab" data-tab="view" aria-selected="false">보기</button>
-  </nav>
+  <details class="songinfo" id="songinfo">
+    <summary><span id="song-summary">곡 정보</span></summary>
+    <div class="fields">
+      <label>제목 <input id="f-title" type="text" autocomplete="off"></label>
+      <label>아티스트 <input id="f-artist" type="text" autocomplete="off"></label>
+      <label>키 <select id="f-key"></select></label>
+      <label>박자 <select id="f-time"></select></label>
+      <label>템포 <input id="f-tempo" type="number" min="20" max="400" inputmode="numeric" placeholder="BPM"></label>
+    </div>
+  </details>
 
-  <main class="layout" data-active="edit">
-    <section class="pane pane-edit" aria-label="편집">
-      <div class="quickbar" aria-label="빠른 입력">
-        <button type="button" data-ins=" | ">|</button>
-        <button type="button" data-ins=" . ">.</button>
-        <button type="button" data-ins=" % ">%</button>
-        <button type="button" data-ins="|: ">|:</button>
-        <button type="button" data-ins=" :|">:|</button>
-        <button type="button" data-ins="#">#</button>
-        <button type="button" data-ins="b">b</button>
-        <button type="button" data-ins="m">m</button>
-        <button type="button" data-ins="7">7</button>
-        <button type="button" data-ins="maj7">maj7</button>
-        <button type="button" data-ins="/">/</button>
-        <button type="button" data-ins="&#10;[구간]&#10;" data-select="구간">[ ]</button>
-      </div>
-      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
-      <ul id="errors" class="errors" aria-live="polite"></ul>
-      <details class="help">
-        <summary>입력 문법</summary>
-        <pre>title: 제목      artist: 아티스트
-key: C          time: 4/4      tempo: 90
+  <div class="viewbar">
+    <div class="transpose" role="group" aria-label="조옮김">
+      <button id="tr-down" type="button" aria-label="반음 내리기">−</button>
+      <span id="tr-value" class="tr-value">0</span>
+      <button id="tr-up" type="button" aria-label="반음 올리기">+</button>
+      <button id="tr-reset" type="button">원래 키</button>
+    </div>
+    <button id="tr-alt" type="button" class="toggle" hidden></button>
+    <label class="check"><input id="show-orig" type="checkbox"> 원래 코드 함께</label>
+  </div>
 
-[Verse]                  구간 이름
-| C | G/B | Am | F G |   한 줄 = 한 행, 코드는 마디 안에 고르게 나눔
-| C . . G |              각 토큰 1박, "." = 앞 코드 유지
-|: Am | % :|x3           반복 시작/끝(횟수), % = 앞 마디 반복
-| {3/4} C | G ||         박자 변경, || = 겹세로줄
-# 주석</pre>
-      </details>
-    </section>
-
-    <section class="pane pane-view" aria-label="보기">
-      <div class="viewbar">
-        <div class="transpose" role="group" aria-label="조옮김">
-          <button id="tr-down" type="button" aria-label="반음 내리기">−</button>
-          <span id="tr-value" class="tr-value">0</span>
-          <button id="tr-up" type="button" aria-label="반음 올리기">+</button>
-          <button id="tr-reset" type="button">원래 키</button>
-        </div>
-        <button id="tr-alt" type="button" class="toggle" aria-pressed="false" hidden>F♯ / G♭</button>
-        <label class="check"><input id="show-orig" type="checkbox"> 원래 코드 함께</label>
-      </div>
-      <article id="chart" class="chart"></article>
-    </section>
+  <main class="chart-wrap" id="chart-wrap">
+    <p id="lock-note" class="lock-note" hidden>조옮김 보기 중에는 편집할 수 없어요. "원래 키"를 누르면 다시 편집할 수 있습니다.</p>
+    <article id="chart" class="chart"></article>
+    <p class="hint">마디를 누르면 아래에 입력 패널이 열립니다.</p>
   </main>
+
+  <!-- 편집 패널 -->
+  <section id="panel" class="panel" hidden aria-label="마디 편집">
+    <div class="p-row p-head">
+      <span id="p-title" class="p-title"></span>
+      <div id="p-beats" class="p-beats" role="group" aria-label="박 선택"></div>
+      <button id="p-clear" type="button" title="선택한 박의 코드 지우기 (Delete)" aria-label="코드 지우기">⌫</button>
+      <button id="p-close" type="button" aria-label="패널 닫기">✕</button>
+    </div>
+    <div class="p-row scroll" id="p-diatonic" aria-label="키의 다이어토닉 코드"></div>
+    <div class="p-row scroll" id="p-roots" aria-label="근음">
+      <button type="button" data-root="C">C</button><button type="button" data-root="D">D</button>
+      <button type="button" data-root="E">E</button><button type="button" data-root="F">F</button>
+      <button type="button" data-root="G">G</button><button type="button" data-root="A">A</button>
+      <button type="button" data-root="B">B</button>
+      <span class="sep"></span>
+      <button type="button" data-acc="#">♯</button><button type="button" data-acc="b">♭</button>
+      <button type="button" id="p-bass" class="toggle" aria-pressed="false" title="다음에 누르는 근음을 베이스로 (슬래시 코드)" aria-label="베이스 음 지정">／</button>
+    </div>
+    <div class="p-row scroll" id="p-qualities" aria-label="코드 종류">
+      <button type="button" data-q="">메이저</button>
+      <button type="button" data-q="m">m</button>
+      <button type="button" data-q="7">7</button>
+      <button type="button" data-q="m7">m7</button>
+      <button type="button" data-q="maj7">maj7</button>
+      <button type="button" data-q="sus4">sus4</button>
+      <button type="button" data-q="sus2">sus2</button>
+      <button type="button" data-q="add9">add9</button>
+      <button type="button" data-q="6">6</button>
+      <button type="button" data-q="9">9</button>
+      <button type="button" data-q="dim">dim</button>
+      <button type="button" data-q="m7b5">m7♭5</button>
+      <button type="button" data-q="aug">aug</button>
+      <button type="button" data-q="7sus4">7sus4</button>
+    </div>
+    <div class="p-row scroll tools" id="p-tools" aria-label="마디 도구">
+      <button type="button" data-act="add">＋ 마디</button>
+      <button type="button" data-act="dup">복제</button>
+      <button type="button" data-act="del">삭제</button>
+      <button type="button" data-act="simile" class="toggle">% 반복</button>
+      <button type="button" data-act="break" class="toggle">줄바꿈</button>
+      <button type="button" data-act="rstart" class="toggle">|: 시작</button>
+      <button type="button" data-act="rend" class="toggle">:| 끝</button>
+      <button type="button" data-act="dbl" class="toggle">‖</button>
+      <label class="inline">박자 <select id="p-time"></select></label>
+      <span class="sep"></span>
+      <button type="button" data-act="sec-add">＋ 구간</button>
+      <button type="button" data-act="sec-rename">구간 이름</button>
+      <button type="button" data-act="sec-del">구간 삭제</button>
+    </div>
+  </section>
+
+  <dialog id="import-dlg">
+    <form method="dialog" class="dlg">
+      <h2>가져오기</h2>
+      <p class="muted">JSON 파일을 열거나, 텍스트 악보를 붙여넣으세요.</p>
+      <label class="btn file-btn">파일 열기 (.json / .txt)<input id="import-file" type="file" accept=".json,.txt,application/json,text/plain" hidden></label>
+      <textarea id="import-text" rows="10" spellcheck="false" placeholder="key: C&#10;[Verse]&#10;| C | G/B | Am | F G |"></textarea>
+      <details class="help">
+        <summary>텍스트 문법</summary>
+        <pre>title: 제목   key: C   time: 4/4   tempo: 90
+[Verse]                 구간
+| C | G/B | Am | F G |  한 줄 = 한 행
+| C . . G |             토큰 1개 = 1박, "." = 유지
+|: Am | % :|x3          반복, % = 앞 마디 반복
+| {3/4} C | G ||        박자 변경, 겹세로줄</pre>
+      </details>
+      <p id="import-err" class="err-text" hidden></p>
+      <div class="dlg-actions">
+        <button value="cancel" type="submit">취소</button>
+        <button id="import-go" value="go" type="button" class="primary">텍스트 가져오기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
 
   <script type="module" src="src/app.js"></script>
 </body>

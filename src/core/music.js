@@ -116,3 +116,32 @@ export function transposeChord(chord, fromKey, toKey) {
 
 /** 표시용: b → ♭, # → ♯ (코드 심볼에서 소문자 b는 항상 임시표) */
 export const prettyAccidentals = (s) => s.replace(/b/g, '♭').replace(/#/g, '♯');
+
+/** 키 안에서 도수(글자 간격 step, 반음 interval)로 음을 철자한다 */
+function scaleNote(tonic, step, interval) {
+  const letter = LETTERS[mod(LETTERS.indexOf(tonic.letter) + step, 7)];
+  const pc = mod(pitchClass(tonic) + interval, 12);
+  const acc = mod(pc - NATURAL_PC[letter] + 6, 12) - 6;
+  return Math.abs(acc) <= 1 ? { letter, acc } : simplestSpelling(pc, acc > 0);
+}
+
+const DIATONIC = {
+  major: { intervals: [0, 2, 4, 5, 7, 9, 11], qualities: ['', 'm', 'm', '', '', 'm', 'dim'], degrees: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'] },
+  minor: { intervals: [0, 2, 3, 5, 7, 8, 10], qualities: ['m', 'dim', '', 'm', 'm', '', ''], degrees: ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'] },
+};
+
+/** 키의 다이어토닉 3화음 → [{ degree, symbol }] (단조는 V7 추가) */
+export function diatonicChords(key) {
+  const d = key.minor ? DIATONIC.minor : DIATONIC.major;
+  const list = d.intervals.map((iv, step) => ({
+    degree: d.degrees[step],
+    symbol: noteToString(scaleNote(key.tonic, step, iv)) + d.qualities[step],
+  }));
+  if (key.minor) list.push({ degree: 'V7', symbol: noteToString(scaleNote(key.tonic, 4, 7)) + '7' });
+  return list;
+}
+
+export const ALL_KEYS = [
+  ...['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
+  ...['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'],
+];
