@@ -5,6 +5,7 @@
 //   SESSION_SECRET    세션 쿠키 서명 키 (32자 이상 임의 문자열)
 //   ALLOWED_EMAILS    로그인을 허용할 이메일, 쉼표로 구분 (비우면 모든 Google 계정)
 //   DATA_DIR          저장 폴더 (기본 ./data)
+//   MAX_CHARTS_PER_USER  사용자당 악보 수 (기본 200)
 //   PORT              기본 3000
 //   COOKIE_SECURE     기본 1 (https 전용 쿠키). 로컬 http 개발 때만 0
 import http from 'node:http';
@@ -66,13 +67,13 @@ function cleanDoc(raw) {
 
 export function createApp(config) {
   const {
-    clientId = '', secret, allowedEmails = [], dataDir = './data', secureCookie = true,
+    clientId = '', secret, allowedEmails = [], dataDir = './data', secureCookie = true, maxCharts,
     getKey = createKeyStore(config.jwksUrl || GOOGLE_JWKS_URL), now = () => Date.now(),
   } = config;
   if (!secret || secret.length < 32) throw new Error('SESSION_SECRET은 32자 이상이어야 합니다');
   const allowed = new Set(allowedEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const isAllowed = (email) => allowed.size === 0 || allowed.has(email);
-  const store = createStore(dataDir);
+  const store = createStore(dataDir, { maxCharts });
 
   const cookie = (value, maxAge) => [
     `${COOKIE}=${value}`, 'Path=/api', 'HttpOnly', 'SameSite=Lax', `Max-Age=${maxAge}`, secureCookie ? 'Secure' : '',
@@ -203,9 +204,10 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     dataDir: env.DATA_DIR || './data',
     secureCookie: env.COOKIE_SECURE !== '0',
     jwksUrl: env.GOOGLE_JWKS_URL,
+    maxCharts: Number(env.MAX_CHARTS_PER_USER) || undefined,
   });
   const port = Number(env.PORT || 3000);
   http.createServer(app).listen(port, () => {
-    console.log(`compose api :${port} login=${env.GOOGLE_CLIENT_ID ? 'on' : 'off'} allowed=${env.ALLOWED_EMAILS || '(all)'}`);
+    console.log(`compose api :${port} login=${env.GOOGLE_CLIENT_ID ? 'on' : 'off'} maxCharts=${env.MAX_CHARTS_PER_USER || 200} allowed=${env.ALLOWED_EMAILS || '(all)'}`);
   });
 }

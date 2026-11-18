@@ -81,6 +81,7 @@ Google Cloud Console → API 및 서비스 → OAuth 동의 화면(외부, 범�
 GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 SESSION_SECRET=<openssl rand -hex 32 결과>
 ALLOWED_EMAILS=me@gmail.com            # 비우면 모든 Google 계정 허용
+MAX_CHARTS_PER_USER=200                # 사용자당 악보 수 (기본 200)
 ```
 
 ### 3. docker compose 예시

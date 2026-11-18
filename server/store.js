@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 
 const SUB_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const ID_RE = /^[a-f0-9]{24}$/;
-export const MAX_CHARTS = 2000;
+export const DEFAULT_MAX_CHARTS = 200;
 
 export const isChartId = (id) => typeof id === 'string' && ID_RE.test(id);
 
@@ -42,7 +42,7 @@ export function summarize(rec) {
   };
 }
 
-export function createStore(dataDir) {
+export function createStore(dataDir, { maxCharts = DEFAULT_MAX_CHARTS } = {}) {
   // 같은 파일에 대한 쓰기를 순서대로 처리 (프로세스 하나 기준)
   const locks = new Map();
   async function withLock(key, fn) {
@@ -106,7 +106,9 @@ export function createStore(dataDir) {
     async create(sub, doc) {
       await ensureDirs(sub);
       const count = (await fs.readdir(chartsDir(sub))).filter((n) => n.endsWith('.json')).length;
-      if (count >= MAX_CHARTS) throw Object.assign(new Error(`악보는 ${MAX_CHARTS}개까지 저장할 수 있습니다`), { status: 409 });
+      if (count >= maxCharts) {
+        throw Object.assign(new Error(`악보는 한 사람당 ${maxCharts}개까지 저장할 수 있어요. 안 쓰는 악보를 지워 주세요`), { status: 409 });
+      }
       const now = new Date().toISOString();
       const rec = { id: crypto.randomBytes(12).toString('hex'), rev: 1, createdAt: now, updatedAt: now, doc };
       await writeAtomic(chartFile(sub, rec.id), JSON.stringify(rec));

@@ -186,3 +186,16 @@ test('API: 위조한 세션 쿠키는 무시', async (t) => {
   setCookie(`compose_session=${fake}`);
   assert.equal((await req('GET', '/api/charts')).status, 401);
 });
+
+test('API: 사용자당 악보 수 제한', async (t) => {
+  const { req } = await startServer(t, { maxCharts: 2 });
+  await req('POST', '/api/login', { credential: makeToken() });
+  assert.equal((await req('POST', '/api/charts', { doc: newDoc() })).status, 201);
+  const { id } = (await req('POST', '/api/charts', { doc: newDoc() })).body.chart;
+  const over = await req('POST', '/api/charts', { doc: newDoc() });
+  assert.equal(over.status, 409);
+  assert.match(over.body.error, /2개까지/);
+  // 지우면 다시 만들 수 있다 (휴지통은 세지 않음)
+  await req('DELETE', `/api/charts/${id}`);
+  assert.equal((await req('POST', '/api/charts', { doc: newDoc() })).status, 201);
+});
