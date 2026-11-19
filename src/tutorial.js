@@ -227,17 +227,22 @@ export function createTutorial({ getCtx, onExit }) {
   function place() {
     const { target } = resolve();
     const el = target ? document.querySelector(target) : null;
+    ring.hidden = false;
     if (!visible(el)) {
-      ring.hidden = true;
+      // 가리킬 버튼이 없는 단계: 화면 전체만 살짝 어둡게
+      ring.dataset.empty = '';
+      ring.style.transform = `translate(${window.innerWidth / 2}px, ${window.innerHeight / 2}px)`;
+      ring.style.width = '0px';
+      ring.style.height = '0px';
       card.dataset.pos = 'bottom';
       return;
     }
+    delete ring.dataset.empty;
     if (scrolledFor !== i) {
       scrolledFor = i;
       el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
     }
     const r = el.getBoundingClientRect();
-    ring.hidden = false;
     ring.style.transform = `translate(${r.left - 4}px, ${r.top - 4}px)`;
     ring.style.width = `${r.width + 8}px`;
     ring.style.height = `${r.height + 8}px`;
