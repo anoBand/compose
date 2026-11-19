@@ -1,48 +1,53 @@
 // 따라 하기 튜토리얼 (#/tutorial)
-// 연습용 악보에서 실제 편집기를 그대로 쓰면서 한 단계씩 안내한다.
-// 단계마다 done(ctx)가 참이 되면 다음 단계로 넘어간다. 연습 악보는 어디에도 저장하지 않는다.
+// 예시 곡에서 실제 편집기를 그대로 쓰면서 한 단계씩 안내한다.
+// 단계마다 done(ctx, start)가 참이 되면 다음 단계로 넘어간다. start는 그 단계를 시작할 때의 상태.
+// 튜토리얼에서 고친 악보는 어디에도 저장하지 않는다.
 //
-// ctx = { doc, sel, view, panelOpen, events }   (app.js가 만들어 준다)
+// ctx = { doc, sel, view, panelOpen, songinfoOpen, events }   (app.js가 만들어 준다)
 //   events: 버튼처럼 상태로 알 수 없는 동작의 횟수 (예: undo)
+// 예시 곡(app.js SAMPLE)의 첫 구간: | C | G/B | Am7 | F . G . |
 
-const chordAt = (ctx, s, m, beat) => ctx.doc.sections[s]?.measures[m]?.chords.find((c) => c.beat === beat)?.text || '';
-const measureCount = (ctx) => ctx.doc.sections[0]?.measures.length || 0;
+const measureAt = (ctx, s, m) => ctx.doc.sections[s]?.measures[m];
+const chordAt = (ctx, s, m, beat) => measureAt(ctx, s, m)?.chords.find((c) => c.beat === beat)?.text || '';
+const chordsOf = (ctx, s, m) => JSON.stringify(measureAt(ctx, s, m)?.chords || []);
+const totalMeasures = (ctx) => ctx.doc.sections.reduce((n, sec) => n + sec.measures.length, 0);
 
 /** 패널이 필요한 단계에서 패널이 닫혀 있으면 1마디를 다시 누르게 한다 */
 const NEED_PANEL = { target: '.m[data-s="0"][data-m="0"]', text: '입력 패널이 닫혔어요. <b>1마디</b>를 다시 눌러 주세요.' };
 
 export const STEPS = [
   {
-    title: '따라 하기',
-    text: '연습용 악보에서 코드 악보 만드는 법을 직접 해 봅니다. 여기서 고친 내용은 <b>저장되지 않으니</b> 마음껏 눌러 보세요.',
+    title: '처음 오셨네요!',
+    text: '예시 곡으로 코드 악보 만드는 법을 2분 동안 직접 해 봅니다. 여기서 고친 내용은 <b>저장되지 않으니</b> 마음껏 눌러 보세요.',
     next: '시작',
+    skip: '나중에 하기',
   },
   {
     title: '마디 고르기',
-    text: '악보의 <b>첫 번째 마디</b>를 누르세요. 아래에 입력 패널이 열립니다.',
+    text: '악보의 <b>첫 번째 마디</b>(C)를 누르세요. 아래에 입력 패널이 열립니다.',
     target: '.m[data-s="0"][data-m="0"]',
     done: (c) => c.panelOpen && c.sel?.s === 0 && c.sel?.m === 0,
   },
   {
-    title: '코드 넣기',
-    text: '근음 줄에서 <b>C</b>를 누르세요. 선택한 박(1박)에 코드가 들어갑니다.',
-    target: '#p-roots [data-root="C"]',
+    title: '코드 바꾸기',
+    text: '근음 줄에서 <b>D</b>를 누르세요. 선택한 1박의 C가 D로 바뀝니다.',
+    target: '#p-roots [data-root="D"]',
     needPanel: true,
-    done: (c) => chordAt(c, 0, 0, 0) !== '',
+    done: (c, st) => chordAt(c, 0, 0, 0) !== chordAt(st, 0, 0, 0),
   },
   {
     title: '박 고르기',
     text: '한 마디에 코드를 둘 넣어 봅시다. 위쪽의 <b>3</b>번 박을 누르세요.',
     target: '#p-beats .beat:nth-child(3)',
     needPanel: true,
-    done: (c) => c.sel?.m === 0 && c.sel?.beat === 2,
+    done: (c) => c.sel?.s === 0 && c.sel?.m === 0 && c.sel?.beat === 2,
   },
   {
     title: '키에 맞는 코드',
     text: '이 줄은 지금 키(C)에서 자주 쓰는 코드입니다. <b>V&nbsp;G</b>를 누르면 3박에 G가 들어가요.',
     target: '#p-diatonic .dia:nth-child(5)',
     needPanel: true,
-    done: (c) => chordAt(c, 0, 0, 2) !== '',
+    done: (c, st) => chordAt(c, 0, 0, 2) !== chordAt(st, 0, 0, 2),
   },
   {
     title: '코드 종류 바꾸기',
@@ -53,32 +58,32 @@ export const STEPS = [
   },
   {
     title: '다음 마디',
-    text: '<b>2마디</b>를 누르고 아무 코드나 넣어 보세요. (데스크톱에서는 → 키, 그리고 A~G 키로도 됩니다)',
+    text: '<b>2마디</b>(G/B)를 누르고 근음을 하나 눌러 다른 코드로 바꿔 보세요. (데스크톱은 → 키와 A~G 키로도 됩니다)',
     target: '.m[data-s="0"][data-m="1"]',
-    targetWhen: (c) => !(c.sel?.m === 1),
+    targetWhen: (c) => !(c.sel?.s === 0 && c.sel?.m === 1),
     altTarget: '#p-roots',
-    done: (c) => (c.doc.sections[0]?.measures[1]?.chords.length || 0) > 0,
+    done: (c, st) => chordsOf(c, 0, 1) !== chordsOf(st, 0, 1),
   },
   {
     title: '마디 반복 기호',
-    text: '<b>3마디</b>를 누르고 아래 도구 줄의 <b>% 반복</b>을 눌러 보세요. 앞 마디를 그대로 반복한다는 뜻입니다.',
+    text: '<b>3마디</b>(Am7)를 누르고 아래 도구 줄의 <b>% 반복</b>을 눌러 보세요. 앞 마디를 그대로 반복한다는 뜻입니다.',
     target: '.m[data-s="0"][data-m="2"]',
-    targetWhen: (c) => !(c.sel?.m === 2),
+    targetWhen: (c) => !(c.sel?.s === 0 && c.sel?.m === 2),
     altTarget: '#p-tools [data-act="simile"]',
-    done: (c) => Boolean(c.doc.sections[0]?.measures[2]?.simile),
+    done: (c) => Boolean(measureAt(c, 0, 2)?.simile),
   },
   {
     title: '실행 취소',
     text: '실수했다면 위의 <b>↶</b>(실행 취소)를 누르세요. 방금 넣은 % 반복이 사라집니다. (Ctrl+Z)',
     target: '#btn-undo',
-    done: (c, start) => c.events.undo > start.undo,
+    done: (c, st) => c.events.undo > st.events.undo,
   },
   {
     title: '마디 추가',
     text: '도구 줄의 <b>＋ 마디</b>를 누르면 선택한 마디 뒤에 새 마디가 생깁니다. 복제·삭제·반복 기호도 이 줄에 있어요.',
     target: '#p-tools [data-act="add"]',
     needPanel: true,
-    done: (c, start) => measureCount(c) > start.measures,
+    done: (c, st) => totalMeasures(c) > totalMeasures(st),
   },
   {
     title: '조옮김',
@@ -106,7 +111,7 @@ export const STEPS = [
   },
   {
     title: '끝!',
-    text: '기본 사용법은 여기까지입니다. 이제 내 악보를 만들어 보세요. 사용법은 위의 <b>?</b> 버튼으로 언제든 다시 볼 수 있어요.',
+    text: '기본 사용법은 여기까지입니다. 이제 내 악보를 만들어 보세요. 사용법은 편집기 위의 <b>?</b> 버튼으로 언제든 다시 볼 수 있어요.',
     next: '마치기',
     last: true,
   },
@@ -133,7 +138,8 @@ export function createTutorial({ getCtx, onExit }) {
     <p class="tut-text"></p>
     <div class="tut-actions">
       <button type="button" class="tut-prev">이전</button>
-      <button type="button" class="tut-skip">건너뛰기</button>
+      <button type="button" class="tut-skip">이 단계 넘기기</button>
+      <button type="button" class="tut-later">나중에 하기</button>
       <button type="button" class="tut-next primary"></button>
     </div>`;
   const ring = document.createElement('div');
@@ -145,11 +151,13 @@ export function createTutorial({ getCtx, onExit }) {
   q('.tut-x').addEventListener('click', () => stop(true));
   q('.tut-prev').addEventListener('click', () => go(i - 1));
   q('.tut-skip').addEventListener('click', () => go(i + 1));
+  q('.tut-later').addEventListener('click', () => stop(true));
   q('.tut-next').addEventListener('click', () => (STEPS[i].last ? stop(true) : go(i + 1)));
 
+  /** 단계 시작 때의 상태 (done에서 바뀌었는지 비교) */
   function snapshot() {
     const c = getCtx();
-    return { measures: c.doc.sections[0]?.measures.length || 0, undo: c.events.undo };
+    return { doc: JSON.parse(JSON.stringify(c.doc)), events: { ...c.events } };
   }
 
   function go(n) {
@@ -206,6 +214,8 @@ export function createTutorial({ getCtx, onExit }) {
     q('.tut-text').innerHTML = text;
     q('.tut-prev').hidden = i === 0;
     q('.tut-skip').hidden = Boolean(step.next);
+    q('.tut-later').hidden = !step.skip;
+    q('.tut-later').textContent = step.skip || '';
     q('.tut-next').hidden = !step.next;
     q('.tut-next').textContent = step.next || '';
     place();

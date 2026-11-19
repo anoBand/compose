@@ -91,7 +91,9 @@ export function createApp(config) {
     return s;
   }
 
-  const publicUser = (u) => ({ email: u.email, name: u.name, picture: u.picture });
+  const publicUser = (u, profile) => ({
+    email: u.email, name: u.name, picture: u.picture, tutorialDone: Boolean(profile?.tutorialDoneAt),
+  });
 
   async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
@@ -122,9 +124,9 @@ export function createApp(config) {
         console.log(`login denied ${user.email}`);
         throw new HttpError(403, `${user.email} 계정은 허용되지 않았습니다`);
       }
-      await store.saveProfile(user);
+      const profile = await store.saveProfile(user);
       console.log(`login ${user.email}`);
-      return send(res, 200, { user: publicUser(user) }, { 'Set-Cookie': issue(user) });
+      return send(res, 200, { user: publicUser(user, profile) }, { 'Set-Cookie': issue(user) });
     }
 
     if (p === '/api/logout' && method === 'POST') {
@@ -137,7 +139,13 @@ export function createApp(config) {
       if (!user) return send(res, 200, { user: null });
       // 남은 기간이 절반 아래면 세션 연장
       const headers = user.exp * 1000 - now() < (SESSION_DAYS / 2) * 86400_000 ? { 'Set-Cookie': issue(user) } : {};
-      return send(res, 200, { user: publicUser(user) }, headers);
+      return send(res, 200, { user: publicUser(user, await store.getProfile(user.sub)) }, headers);
+    }
+
+    if (p === '/api/me/tutorial' && method === 'POST') {
+      if (!user) throw new HttpError(401, '로그인이 필요합니다');
+      await store.setTutorialDone(user.sub);
+      return send(res, 200, { ok: true });
     }
 
     if (!p.startsWith('/api/charts')) throw new HttpError(404, '없는 주소입니다');

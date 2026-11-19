@@ -41,6 +41,7 @@ export async function config() {
 export const me = () => call('GET', 'me').then((d) => d.user);
 export const login = (credential) => call('POST', 'login', { credential }).then((d) => d.user);
 export const logout = () => call('POST', 'logout');
+export const markTutorialDone = () => call('POST', 'me/tutorial');
 export const listCharts = () => call('GET', 'charts').then((d) => d.charts);
 export const createChart = (doc) => call('POST', 'charts', { doc }).then((d) => d.chart);
 export const getChart = (id) => call('GET', `charts/${id}`);

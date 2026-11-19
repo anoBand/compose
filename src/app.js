@@ -754,7 +754,7 @@ async function route() {
   if (seq !== routeSeq) return;
   const h = location.hash;
   if (h === '#/tutorial') return openTutorial();
-  tut.stop(false);
+  if (tut.active) { tut.stop(false); markTutorialDone(); } // 뒤로 가기 등으로 나가도 본 것으로
   const m = /^#\/c\/([a-f0-9]{24})$/.exec(h);
   if (m) {
     if (!auth.user) return go('#/');
@@ -771,6 +771,8 @@ window.addEventListener('hashchange', (e) => {
 $('btn-home').addEventListener('click', () => go('#/'));
 
 function openLocal() {
+  // 게스트가 처음 편집기에 들어오면 튜토리얼부터 (건너뛸 수 있음)
+  if (!auth.user && !tutorialSeenHere()) return startTutorial('#/local', { replace: true });
   source = { kind: 'local' };
   resetEditorState(readLocalDoc() || sampleDoc());
   showView('editor');
@@ -778,6 +780,30 @@ function openLocal() {
 }
 
 // ───────── 따라 하기 ─────────
+// 게스트: 이 브라우저에서 처음 편집기를 열 때, 로그인 사용자: 계정으로 처음 로그인했을 때 자동으로 시작.
+// 끝내거나 건너뛰면(✕, 나중에 하기, 뒤로 가기) 본 것으로 기록: 브라우저(localStorage) + 로그인했으면 서버(계정)
+const TUT_KEY = 'compose:tutorial-done:v1';
+const tutorialSeenHere = () => store.get(TUT_KEY) === '1';
+let tutReturn = null;
+
+function markTutorialDone() {
+  store.set(TUT_KEY, '1');
+  if (auth.user && !auth.user.tutorialDone) {
+    auth.user.tutorialDone = true;
+    api.markTutorialDone().catch(() => { /* 다음 로그인 때 이 브라우저 기록으로 다시 맞춘다 */ });
+  }
+}
+
+/** 튜토리얼을 열고, 끝나면 returnHash로 돌아간다. replace: 자동 시작이라 방문 기록을 남기지 않음 */
+function startTutorial(returnHash, { replace = false } = {}) {
+  tutReturn = returnHash;
+  if (replace) {
+    history.replaceState(null, '', '#/tutorial');
+    return openTutorial();
+  }
+  return go('#/tutorial');
+}
+
 const tutEvents = { undo: 0 };
 const tut = createTutorial({
   getCtx: () => ({
@@ -786,16 +812,17 @@ const tut = createTutorial({
     songinfoOpen: $('songinfo').open,
   }),
   onExit: () => {
-    const back = prevHash && prevHash !== '#/tutorial' ? prevHash : '#/';
-    go(auth.enabled ? back : (back === '#/' ? '#/local' : back));
+    markTutorialDone();
+    let back = tutReturn || (prevHash && prevHash !== '#/tutorial' ? prevHash : '#/');
+    if (!auth.enabled && back === '#/') back = '#/local';
+    tutReturn = null;
+    go(back);
   },
 });
 
 function openTutorial() {
   source = { kind: 'tutorial' };
-  const practice = newDoc();
-  practice.meta.title = '연습 악보';
-  resetEditorState(practice);
+  resetEditorState(sampleDoc()); // 예시 곡 (저장하지 않음)
   showView('editor');
   $('btn-home').hidden = true;
   $('songinfo').open = false;
@@ -804,8 +831,8 @@ function openTutorial() {
   window.scrollTo(0, 0);
 }
 $('songinfo').addEventListener('toggle', () => tut.poke());
-$('btn-help').addEventListener('click', () => go('#/tutorial'));
-$('home-help').addEventListener('click', () => go('#/tutorial'));
+$('btn-help').addEventListener('click', () => startTutorial(location.hash || '#/'));
+$('home-help').addEventListener('click', () => startTutorial('#/'));
 
 async function openCloud(id, seq) {
   source = null;
@@ -852,6 +879,11 @@ async function showHome(seq) {
   $('home-guest').hidden = Boolean(auth.user);
   $('home-user').hidden = !auth.user;
   if (!auth.user) return renderGuest();
+  // 계정으로 처음 로그인: 이 브라우저에서 이미 봤으면 계정에만 기록, 아니면 튜토리얼부터
+  if (!auth.user.tutorialDone) {
+    if (tutorialSeenHere()) markTutorialDone();
+    else return startTutorial('#/', { replace: true });
+  }
 
   $('acct-name').textContent = auth.user.name || auth.user.email;
   $('acct-name').title = auth.user.email;

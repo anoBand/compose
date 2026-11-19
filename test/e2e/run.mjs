@@ -23,6 +23,8 @@ const errors = [];
 const browser = await chromium.launch();
 async function newPage(opts = {}) {
   const ctx = await browser.newContext({ acceptDownloads: true, ...opts });
+  // 첫 방문 튜토리얼은 test/e2e/tutorial.mjs에서 따로 확인한다
+  await ctx.addInitScript(() => { try { localStorage.setItem('compose:tutorial-done:v1', '1'); } catch { /* 무시 */ } });
   await ctx.route('https://accounts.google.com/gsi/client', (r) => r.fulfill({ contentType: 'application/javascript', body: FAKE_GSI }));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));

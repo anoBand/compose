@@ -74,14 +74,33 @@ export function createStore(dataDir, { maxCharts = DEFAULT_MAX_CHARTS } = {}) {
     await fs.mkdir(path.join(chartsDir(sub), '.trash'), { recursive: true, mode: 0o700 });
   }
 
+  const profileFile = (sub) => path.join(userDir(sub), 'profile.json');
+
   return {
+    async getProfile(sub) {
+      return readJson(profileFile(sub));
+    },
+
+    /** 튜토리얼을 끝냈거나 건너뛴 시각 (계정 단위, 처음 한 번만 자동으로 보여 주려고) */
+    async setTutorialDone(sub) {
+      await ensureDirs(sub);
+      const file = profileFile(sub);
+      return withLock(file, async () => {
+        const prev = (await readJson(file)) || { sub, createdAt: new Date().toISOString() };
+        if (prev.tutorialDoneAt) return;
+        await writeAtomic(file, JSON.stringify({ ...prev, tutorialDoneAt: new Date().toISOString() }, null, 2));
+      });
+    },
+
     async saveProfile(user) {
       await ensureDirs(user.sub);
-      const file = path.join(userDir(user.sub), 'profile.json');
-      const prev = (await readJson(file)) || { createdAt: new Date().toISOString() };
-      await writeAtomic(file, JSON.stringify({
-        ...prev, sub: user.sub, email: user.email, name: user.name, lastLoginAt: new Date().toISOString(),
-      }, null, 2));
+      const file = profileFile(user.sub);
+      return withLock(file, async () => {
+        const prev = (await readJson(file)) || { createdAt: new Date().toISOString() };
+        const next = { ...prev, sub: user.sub, email: user.email, name: user.name, lastLoginAt: new Date().toISOString() };
+        await writeAtomic(file, JSON.stringify(next, null, 2));
+        return next;
+      });
     },
 
     async list(sub) {

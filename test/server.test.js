@@ -199,3 +199,22 @@ test('API: 사용자당 악보 수 제한', async (t) => {
   await req('DELETE', `/api/charts/${id}`);
   assert.equal((await req('POST', '/api/charts', { doc: newDoc() })).status, 201);
 });
+
+test('API: 튜토리얼 완료 기록 (계정 단위)', async (t) => {
+  const { req, setCookie } = await startServer(t);
+  assert.equal((await req('POST', '/api/me/tutorial')).status, 401);
+
+  const login = await req('POST', '/api/login', { credential: makeToken() });
+  assert.equal(login.body.user.tutorialDone, false);
+  assert.equal((await req('GET', '/api/me')).body.user.tutorialDone, false);
+
+  assert.equal((await req('POST', '/api/me/tutorial', null, { 'X-Requested-With': '' })).status, 403);
+  assert.equal((await req('POST', '/api/me/tutorial')).status, 200);
+  assert.equal((await req('POST', '/api/me/tutorial')).status, 200); // 두 번 눌러도 그대로
+  assert.equal((await req('GET', '/api/me')).body.user.tutorialDone, true);
+
+  // 다시 로그인해도 유지
+  setCookie('');
+  const again = await req('POST', '/api/login', { credential: makeToken() });
+  assert.equal(again.body.user.tutorialDone, true);
+});
