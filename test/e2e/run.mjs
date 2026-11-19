@@ -64,7 +64,7 @@ await page.locator('#editor').waitFor();
 assert.equal(await page.locator('#songinfo').getAttribute('open'), '');
 await page.fill('#f-title', '첫 번째 곡');
 await page.locator('#f-title').press('Tab');
-await page.click('.m[data-s="0"][data-m="0"]');
+await page.click('.m[data-s="0"][data-m="0"]', { position: { x: 14, y: 30 } }); // 1박
 await page.click('#p-diatonic button:nth-child(1)');
 await page.keyboard.press('Space');
 await page.keyboard.press('Space');

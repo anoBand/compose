@@ -92,7 +92,7 @@
   <main class="chart-wrap" id="chart-wrap">
     <p id="lock-note" class="lock-note" hidden>조옮김 보기 중에는 편집할 수 없어요. "원래 키"를 누르면 다시 편집할 수 있습니다.</p>
     <article id="chart" class="chart"></article>
-    <p class="hint">마디를 누르면 아래에 입력 패널이 열립니다. 처음이라면 <a href="#/tutorial">사용법 따라 하기</a>.</p>
+    <p class="hint">마디의 박 자리를 누르면 아래에 입력 패널이 열립니다. 처음이라면 <a href="#/tutorial">사용법 따라 하기</a>.</p>
   </main>
 
   <!-- 편집 패널 -->
@@ -100,11 +100,12 @@
     <div class="p-row p-head">
       <span id="p-title" class="p-title"></span>
       <div id="p-beats" class="p-beats" role="group" aria-label="박 선택"></div>
-      <button id="p-clear" type="button" title="선택한 박의 코드 지우기 (Delete)" aria-label="코드 지우기">⌫</button>
       <button id="p-close" type="button" aria-label="패널 닫기">✕</button>
     </div>
     <div class="p-row scroll" id="p-diatonic" aria-label="키의 다이어토닉 코드"></div>
     <div class="p-row scroll" id="p-roots" aria-label="근음">
+      <button type="button" id="p-hold" class="hold" title="이 박 비우기: 앞 코드가 이어집니다 (Delete)" aria-label="이 박 비우기">·</button>
+      <span class="sep"></span>
       <button type="button" data-root="C">C</button><button type="button" data-root="D">D</button>
       <button type="button" data-root="E">E</button><button type="button" data-root="F">F</button>
       <button type="button" data-root="G">G</button><button type="button" data-root="A">A</button>

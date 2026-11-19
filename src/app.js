@@ -225,6 +225,7 @@ const chartEl = $('chart');
 function render() {
   const model = docToModel(doc);
   chartEl.innerHTML = renderChart(model, { ...view, selected: editable() ? sel : null });
+  markBeat();
   renderTransposeBar(model);
   renderSongInfo();
   renderPanel();
@@ -273,7 +274,12 @@ function renderPanel() {
   const model = docToModel(doc);
   const number = m ? model.sections[sel.s].rows.flat()[sel.m]?.number : null;
   const beats = m ? beatsAt(sel.s, sel.m) : 0;
-  $('p-title').textContent = m ? `${sec.name || '구간'} · ${number}마디` : `${sec.name || '구간'} (비어 있음)`;
+  const titleEl = $('p-title');
+  titleEl.textContent = `${sec.name || '구간'} `;
+  const where = document.createElement('span');
+  where.className = 'nb';
+  where.textContent = m ? `· ${number}마디 ${sel.beat + 1}박` : '(비어 있음)';
+  titleEl.append(where);
 
   // 박 버튼: 각 박에 걸린 코드 표시
   const beatsEl = $('p-beats');
@@ -286,7 +292,7 @@ function renderPanel() {
       btn.type = 'button';
       btn.className = 'beat' + (b === sel.beat ? ' on' : '') + (c ? ' has' : '');
       btn.innerHTML = `<small>${b + 1}</small><span>${c ? prettyAccidentals(c.text) : (m.simile && b === 0 ? '%' : '·')}</span>`;
-      btn.addEventListener('click', () => { sel.beat = b; renderPanel(); });
+      btn.addEventListener('click', () => { sel.beat = b; render(); });
       beatsEl.append(btn);
     }
   }
@@ -472,6 +478,52 @@ function moveSelection(delta) {
   if (next) select(next[0], next[1]);
 }
 
+// ───────── 악보에서 박 바로 고르기 ─────────
+// 마디 안의 코드 칸(data-b 시작 박, data-d 길이)은 길이만큼 폭을 차지하므로, 누른 x 위치로 박을 계산한다
+const measureEl = (s, m) => chartEl.querySelector(`.m[data-s="${s}"][data-m="${m}"]`);
+const beatSpans = (mEl) => [...mEl.querySelectorAll('.beats > [data-b]')].map((el) => ({
+  b: Number(el.dataset.b), d: Math.max(1, Number(el.dataset.d) || 1), r: el.getBoundingClientRect(),
+}));
+
+function beatAtPoint(mEl, x, beats) {
+  const spans = beatSpans(mEl);
+  if (!spans.length) return 0;
+  let best = spans[0];
+  let dist = Infinity;
+  for (const sp of spans) {
+    const dx = x < sp.r.left ? sp.r.left - x : x > sp.r.right ? x - sp.r.right : 0;
+    if (dx < dist) { dist = dx; best = sp; }
+  }
+  const frac = Math.min(Math.max((x - best.r.left) / (best.r.width || 1), 0), 0.999);
+  return Math.min(best.b + Math.floor(frac * best.d), beats - 1);
+}
+
+/** 화면에서 (구간, 마디, 박)이 차지하는 사각형 (선택 표시·튜토리얼 강조용) */
+function beatRect(s, m, beat) {
+  const mEl = measureEl(s, m);
+  if (!mEl) return null;
+  const mr = mEl.getBoundingClientRect();
+  const sp = beatSpans(mEl).find((x) => beat >= x.b && beat < x.b + x.d);
+  if (!sp) return null;
+  const w = sp.r.width / sp.d;
+  return { left: sp.r.left + (beat - sp.b) * w, top: mr.top, width: w, height: mr.height, bottom: mr.bottom };
+}
+
+/** 선택한 박을 악보에 표시 */
+function markBeat() {
+  if (!sel || sel.m < 0 || !editable()) return;
+  const mEl = measureEl(sel.s, sel.m);
+  const r = beatRect(sel.s, sel.m, sel.beat);
+  if (!mEl || !r) return;
+  const mr = mEl.getBoundingClientRect();
+  const mark = document.createElement('span');
+  mark.className = 'beat-mark';
+  mark.style.left = `${r.left - mr.left}px`;
+  mark.style.width = `${r.width}px`;
+  mEl.append(mark);
+}
+window.addEventListener('resize', () => { chartEl.querySelector('.beat-mark')?.remove(); markBeat(); });
+
 // ───────── 알림 ─────────
 let toastTimer;
 function toast(msg) {
@@ -487,7 +539,9 @@ chartEl.addEventListener('click', (e) => {
   const mEl = e.target.closest('.m[data-s]');
   if (mEl) {
     if (!editable()) return toast('조옮김 보기 중에는 편집할 수 없어요');
-    return select(Number(mEl.dataset.s), Number(mEl.dataset.m));
+    const s = Number(mEl.dataset.s);
+    const m = Number(mEl.dataset.m);
+    return select(s, m, beatAtPoint(mEl, e.clientX, beatsAt(s, m)));
   }
   const secEl = e.target.closest('.sec[data-sec]');
   if (secEl && editable()) {
@@ -497,11 +551,11 @@ chartEl.addEventListener('click', (e) => {
 });
 
 $('p-close').addEventListener('click', () => { sel = null; render(); });
-$('p-clear').addEventListener('click', clearBeat);
 $('p-roots').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
-  if (b.dataset.root) { lastTouchedBass = bassMode; pressRoot(b.dataset.root); }
+  if (b.id === 'p-hold') clearBeat();
+  else if (b.dataset.root) { lastTouchedBass = bassMode; pressRoot(b.dataset.root); }
   else if (b.dataset.acc) pressAcc(b.dataset.acc);
   else if (b.id === 'p-bass') {
     if (!chordAtBeat()) return toast('먼저 코드를 입력하세요');
@@ -709,7 +763,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.key === 'Tab') {
     e.preventDefault();
     const beats = curMeasure() ? beatsAt(sel.s, sel.m) : 1;
-    if (sel.beat + 1 < beats) { sel.beat += 1; return renderPanel(); }
+    if (sel.beat + 1 < beats) { sel.beat += 1; return render(); }
     return moveSelection(1);
   }
   if (/^[a-gA-G]$/.test(e.key)) { lastTouchedBass = bassMode; return pressRoot(e.key.toUpperCase()); }
@@ -807,7 +861,7 @@ function startTutorial(returnHash, { replace = false } = {}) {
 const tutEvents = { undo: 0 };
 const tut = createTutorial({
   getCtx: () => ({
-    doc, sel, view, events: tutEvents,
+    doc, sel, view, events: tutEvents, beatRect,
     panelOpen: !$('panel').hidden && !$('editor').hidden,
     songinfoOpen: $('songinfo').open,
   }),
@@ -1065,4 +1119,6 @@ $('btn-logout').addEventListener('click', async () => {
   }
   await route();
 })();
-window.__compose = { get doc() { return doc; }, get source() { return source; }, keyToString, cloneDoc };
+window.__compose = {
+  get doc() { return doc; }, get source() { return source; }, get sel() { return sel; }, keyToString, cloneDoc, beatRect,
+};

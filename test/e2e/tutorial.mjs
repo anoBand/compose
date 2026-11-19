@@ -1,5 +1,5 @@
 // 따라 하기 튜토리얼 E2E
-//  - 게스트: 처음 편집기를 열면 예시 곡으로 자동 시작, 15단계를 실제로 눌러 끝까지, 연습 내용은 저장 안 됨, 다시 안 뜸
+//  - 게스트: 처음 편집기를 열면 예시 곡으로 자동 시작, 16단계를 실제로 눌러 끝까지, 연습 내용은 저장 안 됨, 다시 안 뜸
 //  - "나중에 하기"로 건너뛰기, ? 버튼으로 다시 보기, ✕로 그만두기
 //  - 로그인: 계정으로 처음 로그인하면 자동 시작, 건너뛰면 계정에 기록 (다른 브라우저에서도 다시 안 뜸)
 // 실행: node test/e2e/tutorial.mjs (playwright 필요, run.mjs와 같은 방식)
@@ -49,14 +49,21 @@ const helpers = (page, name) => ({
       && !document.querySelector('.tut-card').hidden, n, { timeout: 4000 });
     assert.equal(await page.locator('.tut-title').textContent(), t, `${name}: ${n}단계 제목`);
   },
+  /** 악보에서 (구간, 마디, 박) 자리를 바로 누른다 */
+  async tapBeat(s, m, b) {
+    await page.locator(`.m[data-s="${s}"][data-m="${m}"]`).scrollIntoViewIfNeeded();
+    const r = await page.evaluate(([a, c, d]) => window.__compose.beatRect(a, c, d), [s, m, b]);
+    await page.mouse.click(r.left + r.width / 2, r.top + r.height / 2);
+    await page.waitForTimeout(120);
+  },
   hash: () => page.evaluate(() => location.hash),
   waitHash: (h) => page.waitForFunction((x) => location.hash === x, h, { timeout: 4000 }),
 });
 
-// ───────── 게스트: 자동 시작 → 15단계 끝까지 ─────────
+// ───────── 게스트: 자동 시작 → 16단계 끝까지 ─────────
 async function guestFull(name, opts, theme) {
   const { ctx, page } = await newPage(name, opts, theme);
-  const { shot, tap, expectStep, waitHash } = helpers(page, name);
+  const { shot, tap, tapBeat, expectStep, waitHash } = helpers(page, name);
 
   await page.goto(NOAPI);
   await waitHash('#/tutorial');
@@ -64,43 +71,49 @@ async function guestFull(name, opts, theme) {
   assert.equal(await page.locator('.chart-head h1').textContent(), '예시 곡');
   await shot('01');
   await tap('.tut-next');
-  await expectStep(2, '마디 고르기'); await shot('02');
+  await expectStep(2, '박 고르기'); await shot('02');
   assert.equal(await page.locator('.tut-ring').isVisible(), true);
-  await tap('.m[data-s="0"][data-m="0"]');
+  await tapBeat(0, 0, 0);
   await expectStep(3, '코드 바꾸기'); await shot('03');
+  assert.equal(await page.locator('.beat-mark').count(), 1); // 선택한 박 표시
   await tap('#p-close'); // 패널을 닫으면 다시 열라는 안내
   assert.match(await page.locator('.tut-text').textContent(), /패널이 닫혔어요/);
-  await tap('.m[data-s="0"][data-m="0"]');
+  await tapBeat(0, 0, 0);
   await tap('#p-roots [data-root="D"]');
-  await expectStep(4, '박 고르기'); await shot('04');
-  await tap('#p-beats .beat:nth-child(3)');
+  await expectStep(4, '다른 박 고르기'); await shot('04');
+  await tapBeat(0, 0, 2);
+  assert.deepEqual(await page.evaluate(() => window.__compose.sel), { s: 0, m: 0, beat: 2 });
   await expectStep(5, '키에 맞는 코드'); await shot('05');
   await tap('#p-diatonic .dia:nth-child(5)');
   await expectStep(6, '코드 종류 바꾸기'); await shot('06');
   await tap('#p-qualities [data-q="7"]');
   await expectStep(7, '다음 마디'); await shot('07');
-  await tap('.m[data-s="0"][data-m="1"]');
+  await tapBeat(0, 1, 2);
   await tap('#p-roots [data-root="A"]');
-  await expectStep(8, '마디 반복 기호');
-  await tap('.m[data-s="0"][data-m="2"]'); await shot('08');
+  await expectStep(8, '박 비우기'); await shot('08');
+  assert.equal(await page.evaluate(() => window.__compose.doc.sections[0].measures[1].chords.length), 2);
+  await tap('#p-hold');
+  await expectStep(9, '마디 반복 기호');
+  await tapBeat(0, 2, 0); await shot('09');
   await tap('#p-tools [data-act="simile"]');
-  await expectStep(9, '실행 취소'); await shot('09');
+  await expectStep(10, '실행 취소'); await shot('10');
   await tap('#btn-undo');
-  await expectStep(10, '마디 추가'); await shot('10');
+  await expectStep(11, '마디 추가'); await shot('11');
   await tap('#p-tools [data-act="add"]');
-  await expectStep(11, '조옮김'); await shot('11');
+  await expectStep(12, '조옮김'); await shot('12');
   await tap('#tr-up');
-  await expectStep(12, '원래 키로'); await shot('12');
+  await expectStep(13, '원래 키로'); await shot('13');
   await tap('#tr-reset');
-  await expectStep(13, '곡 정보'); await shot('13');
+  await expectStep(14, '곡 정보'); await shot('14');
   await tap('#songinfo > summary');
-  await expectStep(14, '내보내기'); await shot('14');
+  await expectStep(15, '내보내기'); await shot('15');
   await tap('.tut-next');
-  await expectStep(15, '끝!'); await shot('15');
+  await expectStep(16, '끝!'); await shot('16');
+  assert.equal(await page.locator('.tut-skip').count(), 0); // '이 단계 넘기기' 없음
 
   const doc = await page.evaluate(() => window.__compose.doc);
   assert.equal(doc.sections[0].measures[0].chords.map((c) => c.text).join(' '), 'D G7');
-  assert.equal(doc.sections[0].measures[1].chords[0].text, 'A');
+  assert.equal(doc.sections[0].measures[1].chords.map((c) => c.text).join(' '), 'G/B'); // A를 넣었다가 ·로 지움
   assert.equal(doc.sections[0].measures[2].simile, false);
 
   await tap('.tut-next');
@@ -110,7 +123,7 @@ async function guestFull(name, opts, theme) {
   // 튜토리얼에서 고친 내용은 저장되지 않고, 편집기는 예시 곡 그대로
   assert.equal(await page.evaluate(() => window.__compose.doc.sections[0].measures[0].chords[0].text), 'C');
   assert.equal(await page.evaluate((k) => localStorage.getItem(k), TUT_KEY), '1');
-  await shot('16-after');
+  await shot('17-after');
 
   // 다시 열어도 자동으로 뜨지 않음
   await page.reload();
@@ -120,7 +133,7 @@ async function guestFull(name, opts, theme) {
   assert.equal(await page.locator('.tut-card').isHidden(), true);
 
   // 내 악보를 고친 뒤 ?로 다시 보고 ✕로 나가도 내 악보는 그대로
-  await tap('.m[data-s="0"][data-m="0"]');
+  await tapBeat(0, 0, 0);
   await tap('#p-roots [data-root="E"]');
   await page.waitForTimeout(400);
   const before = await page.evaluate(() => localStorage.getItem('compose:doc:v1'));
@@ -133,7 +146,7 @@ async function guestFull(name, opts, theme) {
   assert.equal(await page.evaluate(() => localStorage.getItem('compose:doc:v1')), before);
   assert.equal(await page.evaluate(() => window.__compose.doc.sections[0].measures[0].chords[0].text), 'E');
   await ctx.close();
-  console.log(`- ${name}: 게스트 자동 시작, 15단계, 저장 안 됨, 다시 안 뜸, ?·✕`);
+  console.log(`- ${name}: 게스트 자동 시작, 16단계, 저장 안 됨, 다시 안 뜸, ?·✕`);
 }
 
 await guestFull('desktop', { viewport: { width: 1280, height: 860 } });
@@ -179,7 +192,7 @@ await guestFull('mobile-dark', { ...devices['Pixel 7'] }, 'dark');
   assert.equal(await page.locator('.chart-head h1').textContent(), '예시 곡');
   await shot('01');
   await tap('.tut-next');
-  await expectStep(2, '마디 고르기');
+  await expectStep(2, '박 고르기');
   await tap('.tut-x');
   await waitHash('#/');
   await page.locator('#home-user').waitFor();

@@ -127,6 +127,12 @@ input, select {
 .m[data-s]:hover { background: color-mix(in srgb, var(--accent-soft) 50%, transparent); }
 .m.sel { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
 .chord.gap { min-width: 0; }
+/* 선택한 박 표시 (악보에서 박을 바로 누름) */
+.beat-mark {
+  position: absolute; top: 0; bottom: 0; pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-bottom: 3px solid var(--accent);
+}
 .sec.cur .sec-name { border-color: var(--accent); color: var(--accent); }
 
 .beats { display: flex; align-items: flex-end; gap: .3rem; }
@@ -165,6 +171,10 @@ input, select {
 .p-beats .beat.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
 .p-beats .beat:not(.has) span { color: var(--muted); }
 #p-close { margin-left: auto; }
+#p-hold { font-weight: 800; font-size: 1.2rem; }
+.p-title .nb { white-space: nowrap; }
+/* 넓은 화면에서는 박을 악보에서 바로 고르므로 패널의 박 버튼을 숨긴다 (휴대폰은 손가락으로 누르기 쉽게 남김) */
+@media (min-width: 761px) { .p-beats { display: none; } .p-title { max-width: none; font-size: .9rem; white-space: nowrap; } }
 .dia { flex-direction: column; line-height: 1.1; font-weight: 700; min-width: 3.2rem; }
 .dia small { font-size: .62rem; font-weight: 500; color: var(--muted); }
 #p-roots button[data-root] { font-weight: 700; min-width: 2.7rem; }
@@ -324,7 +334,7 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
   .m.dense .beats, .m.xdense .beats { gap: .12rem; }
   .p-row { padding: .2rem .5rem; }
   .p-beats .beat { min-width: 2.6rem; padding: .15rem .25rem; }
-  #p-clear, #p-close { min-width: 2.4rem; padding: 0 .4rem; }
+  #p-close { min-width: 2.4rem; padding: 0 .4rem; }
   #p-roots { gap: .25rem; }
   #p-roots button { min-width: 2.05rem; padding: 0 .2rem; }
   #p-roots .sep { margin: 0; }
@@ -335,6 +345,7 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
   .topbar, .songinfo, .viewbar, .panel, .hint, .lock-note, .toast, .home, .busy { display: none !important; }
   .chart { padding: 0; }
   .m.sel { background: none; box-shadow: none; }
+  .beat-mark { display: none; }
   :root { --accent: #1f5fd1; --bar: #000; --ink: #000; --muted: #555; }
   body { background: #fff; }
   .row { break-inside: avoid; }

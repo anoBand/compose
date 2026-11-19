@@ -40,12 +40,13 @@ export function renderChart(model, view = {}) {
     </header>`;
 
   const chordHtml = (c) => {
-    if (!c.chord) return `<span class="chord bad" style="--dur:${c.duration}">${esc(c.text)}</span>`;
+    const pos = `data-b="${c.beat}" data-d="${c.duration}"`;
+    if (!c.chord) return `<span class="chord bad" ${pos} style="--dur:${c.duration}">${esc(c.text)}</span>`;
     const orig = chordToString(c.chord);
     const shown = moved ? chordToString(transposeChord(c.chord, fromKey, toKey)) : orig;
     const origTag = moved && view.showOriginal && !c.chord.nc
       ? `<small class="orig">${pretty(orig)}</small>` : '';
-    return `<span class="chord${moved && !c.chord.nc ? ' chg' : ''}" style="--dur:${c.duration}">${origTag}${pretty(shown)}</span>`;
+    return `<span class="chord${moved && !c.chord.nc ? ' chg' : ''}" ${pos} style="--dur:${c.duration}">${origTag}${pretty(shown)}</span>`;
   };
 
   const measureHtml = (m, i) => {
@@ -58,12 +59,13 @@ export function renderChart(model, view = {}) {
     if (sel) cls.push('sel');
     const chars = m.simile ? 0 : m.chords.reduce((n, c) => n + c.text.length, 0) + Math.max(0, m.chords.length - 1);
     if (chars > 11) cls.push('xdense'); else if (chars > 7) cls.push('dense');
+    const all = `data-b="0" data-d="${m.time.beats}"`;
     const body = m.simile
-      ? `<span class="simile">%</span>`
+      ? `<span class="simile" ${all}>%</span>`
       : m.chords.length
-        ? (m.chords[0].beat > 0 ? `<span class="chord gap" style="--dur:${m.chords[0].beat}"></span>` : '')
+        ? (m.chords[0].beat > 0 ? `<span class="chord gap" data-b="0" data-d="${m.chords[0].beat}" style="--dur:${m.chords[0].beat}"></span>` : '')
           + m.chords.map(chordHtml).join('')
-        : m.raw ? `<span class="chord bad">${esc(m.raw)}</span>` : '<span class="chord gap"></span>';
+        : m.raw ? `<span class="chord bad" ${all}>${esc(m.raw)}</span>` : `<span class="chord gap" ${all}></span>`;
     const extras = [
       i === 0 ? `<span class="mnum">${m.number}</span>` : '',
       m.timeChange ? `<span class="tsig">${m.time.beats}/${m.time.unit}</span>` : '',

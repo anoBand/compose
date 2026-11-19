@@ -3,8 +3,10 @@
 // 단계마다 done(ctx, start)가 참이 되면 다음 단계로 넘어간다. start는 그 단계를 시작할 때의 상태.
 // 튜토리얼에서 고친 악보는 어디에도 저장하지 않는다.
 //
-// ctx = { doc, sel, view, panelOpen, songinfoOpen, events }   (app.js가 만들어 준다)
+// ctx = { doc, sel, view, panelOpen, songinfoOpen, events, beatRect }   (app.js가 만들어 준다)
 //   events: 버튼처럼 상태로 알 수 없는 동작의 횟수 (예: undo)
+//   beatRect(s, m, beat): 악보에서 그 박이 차지하는 사각형 (target이 함수면 이걸로 강조)
+// target: CSS 선택자 또는 (ctx) => 사각형
 // 예시 곡(app.js SAMPLE)의 첫 구간: | C | G/B | Am7 | F . G . |
 
 const measureAt = (ctx, s, m) => ctx.doc.sections[s]?.measures[m];
@@ -13,7 +15,8 @@ const chordsOf = (ctx, s, m) => JSON.stringify(measureAt(ctx, s, m)?.chords || [
 const totalMeasures = (ctx) => ctx.doc.sections.reduce((n, sec) => n + sec.measures.length, 0);
 
 /** 패널이 필요한 단계에서 패널이 닫혀 있으면 1마디를 다시 누르게 한다 */
-const NEED_PANEL = { target: '.m[data-s="0"][data-m="0"]', text: '입력 패널이 닫혔어요. <b>1마디</b>를 다시 눌러 주세요.' };
+const beat = (s, m, b) => (c) => c.beatRect(s, m, b);
+const NEED_PANEL = { target: beat(0, 0, 0), text: '입력 패널이 닫혔어요. <b>1마디</b>를 다시 눌러 주세요.' };
 
 export const STEPS = [
   {
@@ -23,22 +26,22 @@ export const STEPS = [
     skip: '나중에 하기',
   },
   {
-    title: '마디 고르기',
-    text: '악보의 <b>첫 번째 마디</b>(C)를 누르세요. 아래에 입력 패널이 열립니다.',
-    target: '.m[data-s="0"][data-m="0"]',
+    title: '박 고르기',
+    text: '악보의 <b>첫 마디 1박</b>(C)을 누르세요. 누른 박이 표시되고 아래에 입력 패널이 열립니다.',
+    target: beat(0, 0, 0),
     done: (c) => c.panelOpen && c.sel?.s === 0 && c.sel?.m === 0,
   },
   {
     title: '코드 바꾸기',
-    text: '근음 줄에서 <b>D</b>를 누르세요. 선택한 1박의 C가 D로 바뀝니다.',
+    text: '근음 줄에서 <b>D</b>를 누르세요. 선택한 박의 코드가 D로 바뀝니다.',
     target: '#p-roots [data-root="D"]',
     needPanel: true,
-    done: (c, st) => chordAt(c, 0, 0, 0) !== chordAt(st, 0, 0, 0),
+    done: (c, st) => chordsOf(c, 0, 0) !== chordsOf(st, 0, 0),
   },
   {
-    title: '박 고르기',
-    text: '한 마디에 코드를 둘 넣어 봅시다. 위쪽의 <b>3</b>번 박을 누르세요.',
-    target: '#p-beats .beat:nth-child(3)',
+    title: '다른 박 고르기',
+    text: '한 마디에 코드를 둘 넣어 봅시다. 악보에서 <b>1마디의 3번째 박</b> 자리를 바로 누르세요.',
+    target: beat(0, 0, 2),
     needPanel: true,
     done: (c) => c.sel?.s === 0 && c.sel?.m === 0 && c.sel?.beat === 2,
   },
@@ -58,11 +61,18 @@ export const STEPS = [
   },
   {
     title: '다음 마디',
-    text: '<b>2마디</b>(G/B)를 누르고 근음을 하나 눌러 다른 코드로 바꿔 보세요. (데스크톱은 → 키와 A~G 키로도 됩니다)',
-    target: '.m[data-s="0"][data-m="1"]',
+    text: '<b>2마디의 3번째 박</b>을 누르고 근음을 하나 눌러 코드를 넣어 보세요. (데스크톱은 → 키와 A~G 키로도 됩니다)',
+    target: beat(0, 1, 2),
     targetWhen: (c) => !(c.sel?.s === 0 && c.sel?.m === 1),
     altTarget: '#p-roots',
     done: (c, st) => chordsOf(c, 0, 1) !== chordsOf(st, 0, 1),
+  },
+  {
+    title: '박 비우기',
+    text: '근음 줄 맨 앞의 <b>·</b> 버튼을 누르면 선택한 박의 코드가 지워지고 앞 코드가 이어집니다. 방금 넣은 코드를 지워 보세요. (Delete 키)',
+    target: '#p-hold',
+    needPanel: true,
+    done: (c, st) => chordsOf(c, 0, 1) !== chordsOf(st, 0, 1) && !chordAt(c, 0, 1, c.sel?.beat ?? -1),
   },
   {
     title: '마디 반복 기호',
@@ -138,7 +148,6 @@ export function createTutorial({ getCtx, onExit }) {
     <p class="tut-text"></p>
     <div class="tut-actions">
       <button type="button" class="tut-prev">이전</button>
-      <button type="button" class="tut-skip">이 단계 넘기기</button>
       <button type="button" class="tut-later">나중에 하기</button>
       <button type="button" class="tut-next primary"></button>
     </div>`;
@@ -150,7 +159,6 @@ export function createTutorial({ getCtx, onExit }) {
   const q = (sel) => card.querySelector(sel);
   q('.tut-x').addEventListener('click', () => stop(true));
   q('.tut-prev').addEventListener('click', () => go(i - 1));
-  q('.tut-skip').addEventListener('click', () => go(i + 1));
   q('.tut-later').addEventListener('click', () => stop(true));
   q('.tut-next').addEventListener('click', () => (STEPS[i].last ? stop(true) : go(i + 1)));
 
@@ -213,7 +221,6 @@ export function createTutorial({ getCtx, onExit }) {
     q('.tut-title').textContent = step.title;
     q('.tut-text').innerHTML = text;
     q('.tut-prev').hidden = i === 0;
-    q('.tut-skip').hidden = Boolean(step.next);
     q('.tut-later').hidden = !step.skip;
     q('.tut-later').textContent = step.skip || '';
     q('.tut-next').hidden = !step.next;
@@ -226,9 +233,16 @@ export function createTutorial({ getCtx, onExit }) {
   /** 강조 테두리와 안내 카드 위치 (매 프레임: 스크롤·패널 열림에 따라 움직이므로) */
   function place() {
     const { target } = resolve();
-    const el = target ? document.querySelector(target) : null;
+    let r = null;
+    let el = null;
+    if (typeof target === 'function') {
+      r = target(getCtx());
+    } else if (target) {
+      el = document.querySelector(target);
+      if (visible(el)) r = el.getBoundingClientRect();
+    }
     ring.hidden = false;
-    if (!visible(el)) {
+    if (!r) {
       // 가리킬 버튼이 없는 단계: 화면 전체만 살짝 어둡게
       ring.dataset.empty = '';
       ring.style.transform = `translate(${window.innerWidth / 2}px, ${window.innerHeight / 2}px)`;
@@ -240,9 +254,11 @@ export function createTutorial({ getCtx, onExit }) {
     delete ring.dataset.empty;
     if (scrolledFor !== i) {
       scrolledFor = i;
-      el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      if (el) el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      else if (r.top < 60 || r.bottom > window.innerHeight * 0.55) {
+        window.scrollBy({ top: r.top - window.innerHeight / 3, behavior: 'smooth' });
+      }
     }
-    const r = el.getBoundingClientRect();
     ring.style.transform = `translate(${r.left - 4}px, ${r.top - 4}px)`;
     ring.style.width = `${r.width + 8}px`;
     ring.style.height = `${r.height + 8}px`;
