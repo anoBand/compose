@@ -19,6 +19,7 @@
       <button id="btn-new" type="button">새 악보</button>
       <button id="btn-import" type="button">가져오기</button>
       <button id="btn-export" type="button">내보내기</button>
+      <button id="btn-help" type="button" title="사용법 따라 하기" aria-label="사용법 따라 하기">?</button>
     </div>
     <div class="account" id="account" hidden>
       <img id="acct-pic" class="acct-pic" alt="" referrerpolicy="no-referrer" hidden>
@@ -40,6 +41,7 @@
       <div id="gsi-btn" class="gsi-btn"></div>
       <p id="login-msg" class="err-text" hidden></p>
       <a id="btn-local" class="local-link" href="#/local">로그인 없이 쓰기 <small>(이 브라우저에만 저장)</small></a>
+      <a class="local-link" href="#/tutorial">처음이라면: 사용법 따라 하기 (2분)</a>
     </section>
 
     <section id="home-user" class="library" hidden>
@@ -47,6 +49,7 @@
         <h1>내 악보</h1>
         <div class="home-actions">
           <input id="chart-search" type="search" placeholder="제목·아티스트 검색" autocomplete="off" aria-label="악보 검색">
+          <button id="home-help" type="button">사용법</button>
           <button id="home-import" type="button">가져오기</button>
           <button id="home-new" type="button" class="primary">＋ 새 악보</button>
         </div>
@@ -89,7 +92,7 @@
   <main class="chart-wrap" id="chart-wrap">
     <p id="lock-note" class="lock-note" hidden>조옮김 보기 중에는 편집할 수 없어요. "원래 키"를 누르면 다시 편집할 수 있습니다.</p>
     <article id="chart" class="chart"></article>
-    <p class="hint">마디를 누르면 아래에 입력 패널이 열립니다.</p>
+    <p class="hint">마디를 누르면 아래에 입력 패널이 열립니다. 처음이라면 <a href="#/tutorial">사용법 따라 하기</a>.</p>
   </main>
 
   <!-- 편집 패널 -->

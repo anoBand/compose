@@ -11,6 +11,8 @@
   - 구간: 추가, 이름 바꾸기, 삭제
 - **조옮김**: 원본은 그대로 두고 보기만 옮깁니다. `C Key +2 › D Key`로 표시하고, 바뀐 코드는 파란색입니다. 조옮김 보기 중에는 편집이 잠깁니다.
 - **실행 취소/다시 실행**, 가져오기(JSON 또는 텍스트 악보 붙여넣기)
+- **사용법 따라 하기**(`#/tutorial`): 연습용 악보에서 실제 편집기를 눌러 보며 15단계로 배운다(마디 선택 → 코드 입력 → 박 → 다이어토닉 → 코드 종류 → % 반복 → 실행 취소 → 마디 추가 → 조옮김 → 곡 정보 → 내보내기).
+  편집기의 `?` 버튼, 홈의 "사용법", 로그인 화면의 링크로 연다. 연습 악보는 저장하지 않고, 끝나면 원래 화면으로 돌아간다.
 - **내보내기**: PDF(A4, 줄 중간에서 쪽을 나누지 않음, 쪽 번호), JPG(한 장), JSON(원본), 인쇄. PDF·JPG는 지금 보이는 키(조옮김) 그대로 만든다.
 - **Google 로그인**(서버가 있을 때): 로그인하면 홈에 "내 악보" 목록(검색, 복제, 삭제)이 보이고, 악보는 서버에 자동 저장된다.
   다른 기기에서 같은 악보를 먼저 고쳤으면 덮어쓸지 물어본다. 로그인 없이 쓰면 이 브라우저에만 저장되고,
@@ -52,6 +54,7 @@ src/render/chordChart.js 모델 → HTML
 src/app.js               편집 UI, 실행 취소, 화면 전환(#/ 홈, #/c/<id> 서버 악보, #/local), 로그인, 자동 저장
 src/api.js               /api 호출
 src/export.js            PDF/JPG: 캔버스에 직접 그림 (jsPDF는 src/vendor/, 내보낼 때만 불러옴)
+src/tutorial.js          따라 하기: 단계 정의(조건을 채우면 다음 단계), 강조 테두리·안내 카드
 server/index.js          API 서버 (Node 22+, 외부 의존성 없음): 로그인, 악보 CRUD
 server/auth.js           Google ID 토큰 검증(Google 공개키로 서명 확인), 세션 쿠키(HMAC)
 server/store.js          사용자별 JSON 파일 저장 (지운 악보는 .trash/ 로)
@@ -62,6 +65,7 @@ deploy/update.sh         서버 자동 배포 스크립트
 ```bash
 python3 -m http.server 8080   # ES 모듈이라 file:// 로는 안 열림
 npm test                      # 단위·API 테스트 (Node 22+)
+# E2E: node test/e2e/run.mjs (전체), node test/e2e/tutorial.mjs (따라 하기 15단계, 데스크톱·모바일·다크)
 # API까지 띄우려면 (로그인 없이 저장 API만 확인할 때는 GOOGLE_CLIENT_ID 생략)
 SESSION_SECRET=$(openssl rand -hex 32) COOKIE_SECURE=0 node server/index.js
 ```

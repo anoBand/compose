@@ -2,3 +2,4 @@ node_modules/
 .DS_Store
 test/e2e/out/
 data/
+test/e2e/out-tutorial/

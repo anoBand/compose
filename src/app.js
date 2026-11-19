@@ -9,6 +9,7 @@ import {
 import { renderChart } from './render/chordChart.js';
 import * as api from './api.js';
 import { exportPdf, exportJpg } from './export.js';
+import { createTutorial } from './tutorial.js';
 
 const DOC_KEY = 'compose:doc:v1';
 const VIEW_KEY = 'compose:view:v1';
@@ -48,10 +49,13 @@ const undoStack = [];
 const redoStack = [];
 
 /** 지금 편집 중인 악보가 어디 저장되는지: 브라우저(local) 또는 서버(cloud) */
-let source = null; // { kind: 'local' } | { kind: 'cloud', id, rev }
+let source = null; // { kind: 'local' } | { kind: 'cloud', id, rev } | { kind: 'tutorial' }
 const auth = { enabled: false, clientId: null, user: null };
 
-const viewKey = () => (source?.kind === 'cloud' ? `compose:view:${source.id}` : VIEW_KEY);
+const viewKey = () => {
+  if (source?.kind === 'tutorial') return null; // 연습 악보는 저장하지 않는다
+  return source?.kind === 'cloud' ? `compose:view:${source.id}` : VIEW_KEY;
+};
 const defaultView = () => ({ semitones: 0, altSpelling: false, showOriginal: false });
 
 function resetEditorState(nextDoc) {
@@ -61,7 +65,9 @@ function resetEditorState(nextDoc) {
   sel = null;
   bassMode = false;
   Object.assign(view, defaultView());
-  try { Object.assign(view, JSON.parse(store.get(viewKey()) || '{}')); } catch { /* 무시 */ }
+  if (viewKey()) {
+    try { Object.assign(view, JSON.parse(store.get(viewKey()) || '{}')); } catch { /* 무시 */ }
+  }
 }
 
 function readLocalDoc() {
@@ -77,7 +83,7 @@ let saveTimer;
 function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    store.set(viewKey(), JSON.stringify(view));
+    if (viewKey()) store.set(viewKey(), JSON.stringify(view));
     if (source?.kind === 'local') store.set(DOC_KEY, JSON.stringify(doc));
   }, 250);
   if (source?.kind === 'cloud') cloud.schedule();
@@ -185,6 +191,7 @@ function edit(fn) {
 
 function undo() {
   if (!undoStack.length) return;
+  tutEvents.undo += 1;
   redoStack.push(JSON.stringify(doc));
   doc = JSON.parse(undoStack.pop());
   fixSelection();
@@ -254,6 +261,7 @@ function renderSongInfo() {
 }
 
 function renderPanel() {
+  queueMicrotask(() => tut.poke()); // 따라 하기: 화면이 다 바뀐 뒤 단계 조건 확인
   const panel = $('panel');
   const show = Boolean(sel) && editable();
   panel.hidden = !show;
@@ -745,6 +753,8 @@ async function route() {
   try { await cloud.flush(); } catch { /* 저장 실패는 표시에 남아 있음 */ }
   if (seq !== routeSeq) return;
   const h = location.hash;
+  if (h === '#/tutorial') return openTutorial();
+  tut.stop(false);
   const m = /^#\/c\/([a-f0-9]{24})$/.exec(h);
   if (m) {
     if (!auth.user) return go('#/');
@@ -753,7 +763,11 @@ async function route() {
   if (h === '#/local' || !auth.enabled) return openLocal();
   return showHome(seq);
 }
-window.addEventListener('hashchange', route);
+let prevHash = '#/';
+window.addEventListener('hashchange', (e) => {
+  prevHash = new URL(e.oldURL).hash || '#/';
+  route();
+});
 $('btn-home').addEventListener('click', () => go('#/'));
 
 function openLocal() {
@@ -762,6 +776,36 @@ function openLocal() {
   showView('editor');
   render();
 }
+
+// ───────── 따라 하기 ─────────
+const tutEvents = { undo: 0 };
+const tut = createTutorial({
+  getCtx: () => ({
+    doc, sel, view, events: tutEvents,
+    panelOpen: !$('panel').hidden && !$('editor').hidden,
+    songinfoOpen: $('songinfo').open,
+  }),
+  onExit: () => {
+    const back = prevHash && prevHash !== '#/tutorial' ? prevHash : '#/';
+    go(auth.enabled ? back : (back === '#/' ? '#/local' : back));
+  },
+});
+
+function openTutorial() {
+  source = { kind: 'tutorial' };
+  const practice = newDoc();
+  practice.meta.title = '연습 악보';
+  resetEditorState(practice);
+  showView('editor');
+  $('btn-home').hidden = true;
+  $('songinfo').open = false;
+  render();
+  tut.begin();
+  window.scrollTo(0, 0);
+}
+$('songinfo').addEventListener('toggle', () => tut.poke());
+$('btn-help').addEventListener('click', () => go('#/tutorial'));
+$('home-help').addEventListener('click', () => go('#/tutorial'));
 
 async function openCloud(id, seq) {
   source = null;
