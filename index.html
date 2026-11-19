@@ -87,6 +87,22 @@
     </div>
     <button id="tr-alt" type="button" class="toggle" hidden></button>
     <label class="check"><input id="show-orig" type="checkbox"> 원래 코드 함께</label>
+    <!-- 마디·구간 도구: 마디를 골랐을 때만 (코드 입력 패널과 따로) -->
+    <div class="tools" id="p-tools" role="toolbar" aria-label="마디·구간 도구" hidden>
+      <button type="button" data-act="add">＋ 마디</button>
+      <button type="button" data-act="dup">복제</button>
+      <button type="button" data-act="del">삭제</button>
+      <button type="button" data-act="simile" class="toggle">% 반복</button>
+      <button type="button" data-act="break" class="toggle">줄바꿈</button>
+      <button type="button" data-act="rstart" class="toggle">|: 시작</button>
+      <button type="button" data-act="rend" class="toggle">:| 끝</button>
+      <button type="button" data-act="dbl" class="toggle">‖</button>
+      <label class="inline">박자 <select id="p-time"></select></label>
+      <span class="sep"></span>
+      <button type="button" data-act="sec-add">＋ 구간</button>
+      <button type="button" data-act="sec-rename">구간 이름</button>
+      <button type="button" data-act="sec-del">구간 삭제</button>
+    </div>
   </div>
 
   <main class="chart-wrap" id="chart-wrap">
@@ -115,7 +131,6 @@
       <button type="button" id="p-bass" class="toggle" aria-pressed="false" title="다음에 누르는 근음을 베이스로 (슬래시 코드)" aria-label="베이스 음 지정">／</button>
     </div>
     <div class="p-row scroll" id="p-qualities" aria-label="코드 종류">
-      <button type="button" data-q="">메이저</button>
       <button type="button" data-q="m">m</button>
       <button type="button" data-q="7">7</button>
       <button type="button" data-q="m7">m7</button>
@@ -129,21 +144,6 @@
       <button type="button" data-q="m7b5">m7♭5</button>
       <button type="button" data-q="aug">aug</button>
       <button type="button" data-q="7sus4">7sus4</button>
-    </div>
-    <div class="p-row scroll tools" id="p-tools" aria-label="마디 도구">
-      <button type="button" data-act="add">＋ 마디</button>
-      <button type="button" data-act="dup">복제</button>
-      <button type="button" data-act="del">삭제</button>
-      <button type="button" data-act="simile" class="toggle">% 반복</button>
-      <button type="button" data-act="break" class="toggle">줄바꿈</button>
-      <button type="button" data-act="rstart" class="toggle">|: 시작</button>
-      <button type="button" data-act="rend" class="toggle">:| 끝</button>
-      <button type="button" data-act="dbl" class="toggle">‖</button>
-      <label class="inline">박자 <select id="p-time"></select></label>
-      <span class="sep"></span>
-      <button type="button" data-act="sec-add">＋ 구간</button>
-      <button type="button" data-act="sec-rename">구간 이름</button>
-      <button type="button" data-act="sec-del">구간 삭제</button>
     </div>
   </section>
 

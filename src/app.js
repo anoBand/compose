@@ -266,6 +266,7 @@ function renderPanel() {
   const panel = $('panel');
   const show = Boolean(sel) && editable();
   panel.hidden = !show;
+  $('p-tools').hidden = !show; // 마디·구간 도구(보기 줄)도 마디를 골랐을 때만
   document.body.classList.toggle('panel-open', show);
   if (!show) return;
 
@@ -477,6 +478,13 @@ function moveSelection(delta) {
   const next = flat[Math.min(Math.max(i + delta, 0), flat.length - 1)];
   if (next) select(next[0], next[1]);
 }
+
+// 보기 줄(조옮김·마디 도구)을 상단바 바로 아래에 붙여 두기 위한 높이
+const syncTopbarHeight = () => document.documentElement.style.setProperty(
+  '--topbar-h', `${document.querySelector('.topbar').offsetHeight}px`,
+);
+window.addEventListener('resize', syncTopbarHeight);
+syncTopbarHeight();
 
 // ───────── 악보에서 박 바로 고르기 ─────────
 // 마디 안의 코드 칸(data-b 시작 박, data-d 길이)은 길이만큼 폭을 차지하므로, 누른 x 위치로 박을 계산한다

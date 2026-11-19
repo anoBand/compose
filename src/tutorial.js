@@ -76,7 +76,7 @@ export const STEPS = [
   },
   {
     title: '마디 반복 기호',
-    text: '<b>3마디</b>(Am7)를 누르고 아래 도구 줄의 <b>% 반복</b>을 눌러 보세요. 앞 마디를 그대로 반복한다는 뜻입니다.',
+    text: '<b>3마디</b>(Am7)를 누르고 위쪽 도구 줄의 <b>% 반복</b>을 눌러 보세요. 앞 마디를 그대로 반복한다는 뜻입니다.',
     target: '.m[data-s="0"][data-m="2"]',
     targetWhen: (c) => !(c.sel?.s === 0 && c.sel?.m === 2),
     altTarget: '#p-tools [data-act="simile"]',
@@ -90,7 +90,7 @@ export const STEPS = [
   },
   {
     title: '마디 추가',
-    text: '도구 줄의 <b>＋ 마디</b>를 누르면 선택한 마디 뒤에 새 마디가 생깁니다. 복제·삭제·반복 기호도 이 줄에 있어요.',
+    text: '위쪽 도구 줄의 <b>＋ 마디</b>를 누르면 선택한 마디 뒤에 새 마디가 생깁니다. 복제·삭제·반복 기호도 이 줄에 있어요.',
     target: '#p-tools [data-act="add"]',
     needPanel: true,
     done: (c, st) => totalMeasures(c) > totalMeasures(st),

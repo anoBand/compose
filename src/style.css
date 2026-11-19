@@ -74,7 +74,9 @@ input, select {
 .viewbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .9rem;
   padding: .5rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel);
+  position: sticky; top: var(--topbar-h, 3.4rem); z-index: 4; /* 스크롤해도 마디 도구가 보이게 */
 }
+.viewbar .tools { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-left: auto; }
 .transpose { display: flex; align-items: center; gap: .3rem; }
 .transpose #tr-up, .transpose #tr-down { width: 2.4rem; font-size: 1.1rem; padding: 0; }
 .tr-value { min-width: 2.2rem; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -123,7 +125,7 @@ input, select {
 .m.re { border-right: 4px double var(--bar) !important; padding-right: 1rem; }
 .m.re::after { right: 5px; }
 .m.err { background: var(--danger-soft); }
-.m[data-s] { cursor: pointer; scroll-margin: 5rem 0 21rem; }
+.m[data-s] { cursor: pointer; scroll-margin: 8.5rem 0 17rem; }
 /* 마우스를 올린 박 표시 (마디 전체가 아니라 그 박만) */
 .beat-hover {
   position: absolute; top: 0; bottom: 0; pointer-events: none;
@@ -326,6 +328,12 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
   #f-title, #f-artist { width: 100%; }
   .songinfo label:nth-child(-n+2) { flex: 1 1 100%; }
   .viewbar { padding: .4rem .75rem; }
+  .viewbar .tools {
+    flex: 1 1 100%; margin-left: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+  }
+  .viewbar .tools::-webkit-scrollbar { display: none; }
+  .viewbar .tools > * { flex: none; }
+  .m[data-s] { scroll-margin: 10rem 0 15rem; }
   .chart { padding: 1rem .75rem .75rem; }
   .hint { padding: 0 .75rem 1.5rem; }
   .m { min-width: 0; min-height: 2.9rem; padding: 1rem .25rem .4rem .35rem; }
