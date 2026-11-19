@@ -524,6 +524,29 @@ function markBeat() {
 }
 window.addEventListener('resize', () => { chartEl.querySelector('.beat-mark')?.remove(); markBeat(); });
 
+/** 마우스를 올린 박 표시 (마우스가 있는 기기만) */
+let hoverEl = null;
+function clearHover() { hoverEl?.remove(); hoverEl = null; }
+chartEl.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  const mEl = e.target.closest('.m[data-s]');
+  if (!mEl || !editable()) return clearHover();
+  const s = Number(mEl.dataset.s);
+  const m = Number(mEl.dataset.m);
+  const r = beatRect(s, m, beatAtPoint(mEl, e.clientX, beatsAt(s, m)));
+  if (!r) return clearHover();
+  if (!hoverEl || hoverEl.parentElement !== mEl) {
+    clearHover();
+    hoverEl = document.createElement('span');
+    hoverEl.className = 'beat-hover';
+    mEl.prepend(hoverEl); // 선택 표시(.beat-mark)보다 아래에
+  }
+  const mr = mEl.getBoundingClientRect();
+  hoverEl.style.left = `${r.left - mr.left}px`;
+  hoverEl.style.width = `${r.width}px`;
+});
+chartEl.addEventListener('pointerleave', clearHover);
+
 // ───────── 알림 ─────────
 let toastTimer;
 function toast(msg) {

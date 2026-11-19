@@ -125,6 +125,18 @@ async function guestFull(name, opts, theme) {
   assert.equal(await page.evaluate((k) => localStorage.getItem(k), TUT_KEY), '1');
   await shot('17-after');
 
+  // 마우스를 올리면 마디 전체가 아니라 그 박만 표시 (데스크톱)
+  if (name === 'desktop') {
+    const r = await page.evaluate(() => window.__compose.beatRect(0, 1, 2));
+    await page.mouse.move(r.left + r.width / 2, r.top + r.height / 2);
+    await page.waitForTimeout(100);
+    const box = await page.locator('.beat-hover').boundingBox();
+    assert.ok(Math.abs(box.x - r.left) < 2 && Math.abs(box.width - r.width) < 2, '호버 표시가 2마디 3박 위치');
+    await shot('18-hover');
+    await page.mouse.move(5, 5);
+    assert.equal(await page.locator('.beat-hover').count(), 0);
+  }
+
   // 다시 열어도 자동으로 뜨지 않음
   await page.reload();
   await page.locator('#editor').waitFor();
