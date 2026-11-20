@@ -85,8 +85,9 @@ function simplestSpelling(pc, preferSharp) {
 }
 
 // 코드 심볼: 근음 + 종류(자유 문자열) + 선택적 베이스
-const CHORD_RE = /^([A-G](?:#|b)?)([^/]*)(?:\/([A-G](?:#|b)?))?$/;
-const QUALITY_RE = /^(?:m|min|maj|M|dim|aug|sus|add|alt|ø|o|\+|-|\d|b|#|\(|\)|,|\^|Δ)*$/;
+// 종류 안의 "6/9"는 베이스가 아니라 종류로 읽는다 (C6/9, C6/9/E)
+const CHORD_RE = /^([A-G](?:#|b)?)((?:6\/9|[^/])*)(?:\/([A-G](?:#|b)?))?$/;
+const QUALITY_RE = /^(?:6\/9|m|min|maj|M|dim|aug|sus|add|alt|omit|no|ø|o|°|\+|-|\d|b|#|\(|\)|,|\^|Δ|△)*$/;
 
 /** "C#m7b5/G#" → { root, quality:'m7b5', bass } / "N.C." → { nc:true } */
 export function parseChord(str) {
@@ -126,16 +127,28 @@ function scaleNote(tonic, step, interval) {
 }
 
 const DIATONIC = {
-  major: { intervals: [0, 2, 4, 5, 7, 9, 11], qualities: ['', 'm', 'm', '', '', 'm', 'dim'], degrees: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'] },
-  minor: { intervals: [0, 2, 3, 5, 7, 8, 10], qualities: ['m', 'dim', '', 'm', 'm', '', ''], degrees: ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'] },
+  major: {
+    intervals: [0, 2, 4, 5, 7, 9, 11],
+    qualities: ['', 'm', 'm', '', '', 'm', 'dim'],
+    sevenths: ['maj7', 'm7', 'm7', 'maj7', '7', 'm7', 'm7b5'],
+    degrees: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+    degrees7: ['Imaj7', 'ii7', 'iii7', 'IVmaj7', 'V7', 'vi7', 'viiø7'],
+  },
+  minor: {
+    intervals: [0, 2, 3, 5, 7, 8, 10],
+    qualities: ['m', 'dim', '', 'm', 'm', '', ''],
+    sevenths: ['m7', 'm7b5', 'maj7', 'm7', 'm7', 'maj7', '7'],
+    degrees: ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'],
+    degrees7: ['i7', 'iiø7', 'IIImaj7', 'iv7', 'v7', 'VImaj7', 'VII7'],
+  },
 };
 
-/** 키의 다이어토닉 3화음 → [{ degree, symbol }] (단조는 V7 추가) */
-export function diatonicChords(key) {
+/** 키의 다이어토닉 3화음(sevenths=true면 7화음) → [{ degree, symbol }] (단조는 V7 추가) */
+export function diatonicChords(key, sevenths = false) {
   const d = key.minor ? DIATONIC.minor : DIATONIC.major;
   const list = d.intervals.map((iv, step) => ({
-    degree: d.degrees[step],
-    symbol: noteToString(scaleNote(key.tonic, step, iv)) + d.qualities[step],
+    degree: (sevenths ? d.degrees7 : d.degrees)[step],
+    symbol: noteToString(scaleNote(key.tonic, step, iv)) + (sevenths ? d.sevenths : d.qualities)[step],
   }));
   if (key.minor) list.push({ degree: 'V7', symbol: noteToString(scaleNote(key.tonic, 4, 7)) + '7' });
   return list;

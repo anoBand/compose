@@ -218,6 +218,8 @@ function fixSelection() {
 }
 
 const editable = () => view.semitones === 0;
+const DIA7_KEY = 'compose:diatonic-7th'; // 다이어토닉 줄 3화음/7화음 (이 브라우저 설정)
+const dia7 = () => store.get(DIA7_KEY) === '1';
 const curMeasure = () => (sel && sel.m >= 0 ? doc.sections[sel.s]?.measures[sel.m] : null);
 const beatsAt = (s, m) => measureTime(doc, s, m).beats;
 const currentKey = () => parseKey(doc.meta.key) || parseKey('C');
@@ -331,14 +333,27 @@ function renderPanel() {
   // 다이어토닉
   const dia = $('p-diatonic');
   dia.innerHTML = '';
-  for (const d of diatonicChords(currentKey())) {
+  const tutorial = source?.kind === 'tutorial'; // 따라 하기는 3화음 기준으로 안내
+  const sevenths = !tutorial && dia7();
+  if (!tutorial) {
+    const tg = document.createElement('button');
+    tg.type = 'button';
+    tg.className = 'dia-toggle toggle';
+    tg.setAttribute('aria-pressed', String(sevenths));
+    tg.title = '3화음 / 7화음 바꾸기';
+    tg.innerHTML = `<small>${sevenths ? '7화음' : '3화음'}</small>${sevenths ? '7th' : '3rd'}`;
+    tg.addEventListener('click', () => { store.set(DIA7_KEY, sevenths ? '0' : '1'); renderPanel(); });
+    dia.append(tg);
+  }
+  diatonicChords(currentKey(), sevenths).forEach((d, step) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dia';
+    btn.dataset.step = String(step);
     btn.innerHTML = `<small>${d.degree}</small>${prettyAccidentals(d.symbol)}`;
     btn.addEventListener('click', () => setChord(d.symbol));
     dia.append(btn);
-  }
+  });
 
   // 도구 상태
   const pressed = (act, on) => {

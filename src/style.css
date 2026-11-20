@@ -233,6 +233,8 @@ input, select {
 @media (min-width: 761px) { .p-beats { display: none; } .p-title { max-width: none; font-size: .9rem; white-space: nowrap; } }
 .dia { flex-direction: column; line-height: 1.1; font-weight: 700; min-width: 3.2rem; }
 .dia small { font-size: .62rem; font-weight: 500; color: var(--muted); }
+.dia-toggle { flex-direction: column; line-height: 1.1; font-weight: 700; min-width: 2.8rem; font-size: .8rem; }
+.dia-toggle small { font-size: .6rem; font-weight: 500; color: var(--muted); }
 #p-roots button[data-root] { font-weight: 700; min-width: 2.7rem; }
 .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 .2rem; }
 .tools button { font-size: .85rem; }

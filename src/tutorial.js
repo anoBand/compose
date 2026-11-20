@@ -48,7 +48,7 @@ export const STEPS = [
   {
     title: '키에 맞는 코드',
     text: '이 줄은 지금 키(C)에서 자주 쓰는 코드입니다. <b>V&nbsp;G</b>를 누르면 3박에 G가 들어가요.',
-    target: '#p-diatonic .dia:nth-child(5)',
+    target: '#p-diatonic .dia[data-step="4"]',
     needPanel: true,
     done: (c, st) => chordAt(c, 0, 0, 2) !== chordAt(st, 0, 0, 2),
   },
