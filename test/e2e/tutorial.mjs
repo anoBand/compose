@@ -68,7 +68,7 @@ async function guestFull(name, opts, theme) {
   await page.goto(NOAPI);
   await waitHash('#/tutorial');
   await expectStep(1, '처음 오셨네요!');
-  assert.equal(await page.locator('.chart-head h1').textContent(), '예시 곡');
+  assert.equal(await page.inputValue('#f-title'), '예시 곡');
   await shot('01');
   await tap('.tut-next');
   await expectStep(2, '박 고르기'); await shot('02');
@@ -84,7 +84,8 @@ async function guestFull(name, opts, theme) {
   await tapBeat(0, 0, 2);
   assert.deepEqual(await page.evaluate(() => window.__compose.sel), { s: 0, m: 0, beat: 2 });
   await expectStep(5, '키에 맞는 코드'); await shot('05');
-  await tap('#p-diatonic .dia:nth-child(5)');
+  assert.equal(await page.locator('.dia-toggle').count(), 0); // 따라 하기는 3화음만
+  await tap('#p-diatonic .dia[data-step="4"]');
   await expectStep(6, '코드 종류 바꾸기'); await shot('06');
   await tap('#p-qualities [data-q="7"]');
   await expectStep(7, '다음 마디'); await shot('07');
@@ -105,7 +106,8 @@ async function guestFull(name, opts, theme) {
   await expectStep(13, '원래 키로'); await shot('13');
   await tap('#tr-reset');
   await expectStep(14, '곡 정보'); await shot('14');
-  await tap('#songinfo > summary');
+  assert.equal(await page.locator('#head-edit').isVisible(), true);
+  await tap('.tut-next');
   await expectStep(15, '내보내기'); await shot('15');
   await tap('.tut-next');
   await expectStep(16, '끝!'); await shot('16');
@@ -201,7 +203,7 @@ await guestFull('mobile-dark', { ...devices['Pixel 7'] }, 'dark');
   await page.evaluate(() => { window.__tokenQuery = 'email=new@example.com&sub=999'; });
   await page.locator('#fake-google').click();
   await expectStep(1, '처음 오셨네요!');
-  assert.equal(await page.locator('.chart-head h1').textContent(), '예시 곡');
+  assert.equal(await page.inputValue('#f-title'), '예시 곡');
   await shot('01');
   await tap('.tut-next');
   await expectStep(2, '박 고르기');

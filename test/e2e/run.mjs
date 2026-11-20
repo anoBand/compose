@@ -33,6 +33,11 @@ async function newPage(opts = {}) {
 }
 const shot = (page, name, full = false) => page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full });
 const savedState = (page) => page.locator('#save-state').getAttribute('data-state');
+/** 편집기 머리말(입력 칸)의 제목이 t가 될 때까지 */
+async function expectTitle(page, t) {
+  await page.waitForFunction((x) => !document.querySelector('#head-edit').hidden && document.querySelector('#f-title').value === x, t, { timeout: 8000 });
+}
+
 async function waitSaved(page) {
   await page.waitForFunction(() => document.querySelector('#save-state').dataset.state === 'saved', null, { timeout: 8000 });
 }
@@ -61,11 +66,12 @@ await page.click('#home-new');
 await page.waitForURL(/#\/c\/[a-f0-9]{24}$/);
 const chartId = page.url().split('/').pop();
 await page.locator('#editor').waitFor();
-assert.equal(await page.locator('#songinfo').getAttribute('open'), '');
+await expectTitle(page, '');
+assert.equal(await page.evaluate(() => document.activeElement.id), 'f-title'); // 빈 새 악보는 제목 칸으로
 await page.fill('#f-title', '첫 번째 곡');
 await page.locator('#f-title').press('Tab');
 await page.click('.m[data-s="0"][data-m="0"]', { position: { x: 14, y: 30 } }); // 1박
-await page.click('#p-diatonic button:nth-child(1)');
+await page.click('#p-diatonic .dia[data-step="0"]');
 await page.keyboard.press('Space');
 await page.keyboard.press('Space');
 await page.keyboard.press('g');
@@ -73,6 +79,17 @@ await page.click('#p-bass');
 await page.click('#p-roots button[data-root="B"]');
 await waitSaved(page);
 step(`새 악보 만들고 편집 → 자동 저장 (${chartId})`);
+
+// 곡 메모·구간 메모 (구간 이름 상자를 누르면 구간 메모 칸)
+await page.fill('#f-note', 'Intro → Verse → Chorus');
+await page.click('.sec[data-sec="0"] .sec-name');
+await page.keyboard.type('조용히 시작');
+await page.keyboard.press('Escape');
+await waitSaved(page);
+const noted = await (await page.request.get(`${BASE}api/charts/${chartId}`)).json();
+assert.equal(noted.doc.meta.note, 'Intro → Verse → Chorus');
+assert.equal(noted.doc.sections[0].note, '조용히 시작');
+step('곡 메모·구간 메모 → 서버 저장');
 await shot(page, '03-editor');
 
 // 텍스트 가져오기로 긴 악보 만들기 (지금 악보 바꾸기)
@@ -85,8 +102,7 @@ step('가져오기로 긴 악보 → 저장');
 
 // 새로고침해도 로그인·내용 유지
 await page.reload();
-await page.locator('.chart-head h1').waitFor();
-assert.equal(await page.locator('.chart-head h1').textContent(), '긴 노래 테스트');
+await expectTitle(page, '긴 노래 테스트');
 assert.equal(await savedState(page), 'saved');
 step('새로고침 → 로그인·내용 유지');
 
@@ -132,18 +148,16 @@ await other.page.goto(BASE);
 await other.page.click('#fake-google');
 await other.page.locator('#home-user').waitFor();
 await other.page.goto(`${BASE}#/c/${chartId}`);
-await other.page.locator('.chart-head h1').waitFor();
-await other.page.click('#songinfo summary');
-await other.page.fill('#f-artist', '다른 기기');
-await other.page.locator('#f-artist').press('Tab');
+await expectTitle(other.page, '긴 노래 테스트');
+await other.page.fill('#f-note', '다른 기기');
+await other.page.locator('#f-note').press('Tab');
 await waitSaved(other.page);
 
 let dialogMsg = '';
 page.once('dialog', (dg) => { dialogMsg = dg.message(); dg.dismiss(); }); // 취소 = 서버 내용 불러오기
-await page.evaluate(() => { document.querySelector('#songinfo').open = true; });
 await page.fill('#f-title', '이 기기 제목');
 await page.locator('#f-title').press('Tab');
-await page.waitForFunction(() => document.querySelector('.artist')?.textContent === '다른 기기', null, { timeout: 8000 });
+await page.waitForFunction(() => document.querySelector('#f-note').value === '다른 기기', null, { timeout: 8000 });
 assert.match(dialogMsg, /먼저 바뀌었어요/);
 await waitSaved(page);
 step('충돌 → 다른 기기 내용 불러오기');
@@ -198,8 +212,7 @@ assert.match(await page.locator('#local-banner-text').textContent(), /로컬 곡
 await shot(page, '06-local-banner');
 await page.click('#local-move');
 await page.waitForURL(/#\/c\//);
-await page.locator('.chart-head h1').waitFor();
-assert.equal(await page.locator('.chart-head h1').textContent(), '로컬 곡');
+await expectTitle(page, '로컬 곡');
 await page.click('#btn-home');
 await page.locator('.ci').nth(1).waitFor();
 assert.equal(await page.locator('#local-banner').isHidden(), true);
@@ -219,7 +232,7 @@ await stranger.ctx.close();
 // 다크 모드에서도 내보내기는 흰 종이
 const dark = await newPage({ colorScheme: 'dark', viewport: { width: 1280, height: 860 } });
 await dark.page.goto(`${BASE}#/local`);
-await dark.page.locator('.chart-head').waitFor();
+await expectTitle(dark.page, '예시 곡');
 await shot(dark.page, '07-dark-editor');
 await dark.page.click('#btn-export');
 dl = dark.page.waitForEvent('download');
@@ -240,7 +253,7 @@ await mob.page.click('#home-import');
 await mob.page.fill('#import-text', LONG.join('\n'));
 await mob.page.click('#import-go');
 await mob.page.waitForURL(/#\/c\//);
-await mob.page.locator('.chart-head h1').waitFor();
+await expectTitle(mob.page, '긴 노래 테스트');
 await waitSaved(mob.page);
 await shot(mob.page, '11-m-editor');
 await mob.page.click('.m[data-s="0"][data-m="1"]');
@@ -264,7 +277,7 @@ const noapi = await newPage();
 await noapi.page.goto('http://127.0.0.1:8090/');
 await noapi.page.locator('#editor').waitFor();
 assert.equal(await noapi.page.locator('#btn-home').isHidden(), true);
-assert.equal(await noapi.page.locator('.chart-head h1').textContent(), '예시 곡');
+await expectTitle(noapi.page, '예시 곡');
 step('서버 없음 → 바로 로컬 편집기 (예전과 같음)');
 await noapi.ctx.close();
 
