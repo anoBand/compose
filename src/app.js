@@ -302,17 +302,15 @@ function renderPanel() {
   document.body.classList.toggle('panel-open', show);
   if (!show) return;
 
-  const sec = doc.sections[sel.s];
   const m = curMeasure();
   const model = docToModel(doc);
   const number = m ? model.sections[sel.s].rows.flat()[sel.m]?.number : null;
   const beats = m ? beatsAt(sel.s, sel.m) : 0;
   const titleEl = $('p-title');
-  titleEl.textContent = `${sec.name || '구간'} `;
-  const where = document.createElement('span');
-  where.className = 'nb';
-  where.textContent = m ? `· ${number}마디 ${sel.beat + 1}박` : '(비어 있음)';
-  titleEl.append(where);
+  // 구간 이름은 악보에서 보이므로 마디·박만
+  titleEl.innerHTML = m
+    ? `<span class="nb">${number}마디</span> <span class="nb">${sel.beat + 1}박</span>`
+    : `<span class="nb">빈 구간</span>`;
 
   // 박 버튼: 각 박에 걸린 코드 표시
   const beatsEl = $('p-beats');
