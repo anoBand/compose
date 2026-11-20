@@ -3,7 +3,7 @@
 // 단계마다 done(ctx, start)가 참이 되면 다음 단계로 넘어간다. start는 그 단계를 시작할 때의 상태.
 // 튜토리얼에서 고친 악보는 어디에도 저장하지 않는다.
 //
-// ctx = { doc, sel, view, panelOpen, songinfoOpen, events, beatRect }   (app.js가 만들어 준다)
+// ctx = { doc, sel, view, panelOpen, events, beatRect }   (app.js가 만들어 준다)
 //   events: 버튼처럼 상태로 알 수 없는 동작의 횟수 (예: undo)
 //   beatRect(s, m, beat): 악보에서 그 박이 차지하는 사각형 (target이 함수면 이걸로 강조)
 // target: CSS 선택자 또는 (ctx) => 사각형
@@ -109,9 +109,10 @@ export const STEPS = [
   },
   {
     title: '곡 정보',
-    text: '<b>곡 정보</b>를 열면 제목, 아티스트, 키, 박자, 템포를 정할 수 있어요. 키를 바꾸면 위의 키 코드 줄도 따라 바뀝니다.',
-    target: '#songinfo > summary',
-    done: (c) => c.songinfoOpen,
+    text: '악보 맨 위의 <b>제목·아티스트·키·박자·템포</b>를 눌러 바로 고칠 수 있어요. 키를 바꾸면 아래 입력 패널의 키 코드 줄도 따라 바뀝니다. 하나를 바꿔 보거나 <b>다음</b>을 누르세요.',
+    target: '#head-edit',
+    next: '다음',
+    done: (c, st) => JSON.stringify(c.doc.meta) !== JSON.stringify(st.doc.meta),
   },
   {
     title: '내보내기',

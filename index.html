@@ -67,17 +67,6 @@
   </main>
 
   <div id="editor" class="editor" hidden>
-  <details class="songinfo" id="songinfo">
-    <summary><span id="song-summary">곡 정보</span></summary>
-    <div class="fields">
-      <label>제목 <input id="f-title" type="text" autocomplete="off"></label>
-      <label>아티스트 <input id="f-artist" type="text" autocomplete="off"></label>
-      <label>키 <select id="f-key"></select></label>
-      <label>박자 <select id="f-time"></select></label>
-      <label>템포 <input id="f-tempo" type="number" min="20" max="400" inputmode="numeric" placeholder="BPM"></label>
-    </div>
-  </details>
-
   <div class="viewbar">
     <div class="transpose" role="group" aria-label="조옮김">
       <button id="tr-down" type="button" aria-label="반음 내리기">−</button>
@@ -107,6 +96,18 @@
 
   <main class="chart-wrap" id="chart-wrap">
     <p id="lock-note" class="lock-note" hidden>조옮김 보기 중에는 편집할 수 없어요. "원래 키"를 누르면 다시 편집할 수 있습니다.</p>
+    <!-- 곡 정보: 악보 머리말에서 바로 고친다 (조옮김 보기 중에는 숨기고 renderChart의 머리말을 보여 줌) -->
+    <header id="head-edit" class="chart-head head-edit" hidden>
+      <input id="f-title" class="h-title" type="text" placeholder="제목 없음" aria-label="곡 제목" autocomplete="off" enterkeyhint="done">
+      <input id="f-artist" class="h-artist" type="text" placeholder="아티스트" aria-label="아티스트" autocomplete="off" enterkeyhint="done">
+      <p class="chart-meta">
+        <span class="key"><select id="f-key" aria-label="키" title="키"></select> Key</span>
+        <span class="dot">·</span>
+        <select id="f-time" aria-label="박자" title="박자"></select>
+        <span class="dot">·</span>
+        <span class="tempo"><input id="f-tempo" type="number" min="20" max="400" inputmode="numeric" placeholder="템포" aria-label="템포 (BPM)" title="템포 (BPM)" enterkeyhint="done"> BPM</span>
+      </p>
+    </header>
     <article id="chart" class="chart"></article>
   </main>
 

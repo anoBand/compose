@@ -60,15 +60,10 @@ button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); out
 #btn-undo, #btn-redo { width: 2.4rem; padding: 0; font-size: 1.1rem; }
 button:disabled { opacity: .4; cursor: default; }
 
-.songinfo { border-bottom: 1px solid var(--line); background: var(--panel); }
-.songinfo summary { padding: .5rem 1rem; cursor: pointer; font-size: .9rem; color: var(--muted); }
-.songinfo .fields { display: flex; flex-wrap: wrap; gap: .5rem .9rem; padding: 0 1rem .75rem; }
-.songinfo label { display: flex; flex-direction: column; gap: .2rem; font-size: .78rem; color: var(--muted); }
 input, select {
   font: inherit; font-size: .95rem; color: var(--ink); background: var(--bg);
   border: 1px solid var(--line); border-radius: 8px; padding: .4rem .55rem; min-height: 2.25rem;
 }
-#f-title { width: 14rem; } #f-artist { width: 10rem; } #f-tempo { width: 6rem; }
 
 /* 보기 */
 .viewbar {
@@ -96,6 +91,32 @@ input, select {
 .key-shift { color: var(--muted); font-weight: 500; margin: 0 .15rem; }
 .key-arrow { color: var(--muted); margin-right: .15rem; }
 .key-new { color: var(--accent); }
+
+/* 편집기 머리말: 악보 글자처럼 보이는 입력 칸. 눌러서 바로 고친다 */
+.head-edit { padding: 1.5rem clamp(1rem, 4vw, 3rem) 0; max-width: 1100px; margin-bottom: 0; }
+.head-edit + .chart { padding-top: 1.25rem; }
+.head-edit input, .head-edit select {
+  font: inherit; color: inherit; background: transparent; min-height: 0;
+  border: 1px dashed transparent; border-radius: 6px; padding: .1rem .3rem; margin-left: -.3rem;
+}
+.head-edit input:hover, .head-edit select:hover { border-color: var(--line); }
+.head-edit input:focus, .head-edit select:focus {
+  outline: none; border-style: solid; border-color: var(--accent); background: var(--panel);
+}
+.head-edit input::placeholder { color: var(--muted); opacity: .6; }
+.head-edit .h-title { display: block; width: 100%; font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; }
+.head-edit .h-artist { display: block; width: min(100%, 22rem); margin-top: .1rem; color: var(--muted); }
+.head-edit .chart-meta { align-items: center; margin-top: .45rem; }
+.head-edit select { appearance: none; -webkit-appearance: none; cursor: pointer; margin-left: 0; padding: .1rem .3rem; }
+.head-edit .key select { font-weight: 600; color: var(--ink); }
+.head-edit #f-time { color: var(--muted); }
+.head-edit .tempo { white-space: nowrap; }
+.head-edit #f-tempo { margin-left: 0; -moz-appearance: textfield; }
+.head-edit #f-tempo::-webkit-inner-spin-button, .head-edit #f-tempo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.head-edit .tempo.blank { opacity: .7; }
+@media (hover: none) { /* 터치 기기: 고칠 수 있다는 표시를 늘 보이게 */
+  .head-edit input, .head-edit select { border-bottom: 1px dashed var(--line); border-radius: 0; }
+}
 .empty { color: var(--muted); }
 
 .sec { margin-bottom: 1.4rem; }
@@ -321,9 +342,9 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
   .ci-tools { flex-direction: column; }
   .actions > button { flex: 1 1 auto; padding: .3rem .4rem; font-size: .85rem; }
   #btn-help { flex: none; width: 2.1rem; }
-  .songinfo .fields { padding: 0 .75rem .75rem; }
-  #f-title, #f-artist { width: 100%; }
-  .songinfo label:nth-child(-n+2) { flex: 1 1 100%; }
+  .head-edit { padding: 1rem .75rem 0; }
+  .head-edit + .chart { padding-top: 1rem; }
+  .head-edit .h-title { font-size: 1.35rem; }
   .viewbar { padding: .4rem .75rem; }
   .viewbar .tools {
     flex: 1 1 100%; margin-left: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
@@ -351,8 +372,12 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
 
 /* 인쇄: 악보만 */
 @media print {
-  .topbar, .songinfo, .viewbar, .panel, .lock-note, .toast, .home, .busy { display: none !important; }
-  .chart { padding: 0; }
+  .topbar, .viewbar, .panel, .lock-note, .toast, .home, .busy { display: none !important; }
+  .chart, .head-edit, .head-edit + .chart { padding: 0; }
+  .head-edit { margin-bottom: 1.5rem; }
+  .head-edit input, .head-edit select { border-color: transparent !important; }
+  .head-edit .blank { display: none; } /* 비어 있는 제목·아티스트·템포는 인쇄하지 않음 */
+  .head-edit .blank + .dot, .head-edit .dot:has(+ .blank) { display: none; }
   .m.sel { background: none; box-shadow: none; }
   .beat-mark, .beat-hover { display: none; }
   :root { --accent: #1f5fd1; --bar: #000; --ink: #000; --muted: #555; }

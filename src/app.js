@@ -224,7 +224,7 @@ const chartEl = $('chart');
 
 function render() {
   const model = docToModel(doc);
-  chartEl.innerHTML = renderChart(model, { ...view, selected: editable() ? sel : null });
+  chartEl.innerHTML = renderChart(model, { ...view, selected: editable() ? sel : null, hideHead: editable() });
   markBeat();
   renderTransposeBar(model);
   renderSongInfo();
@@ -258,7 +258,26 @@ function renderSongInfo() {
   set('f-key', m.key);
   set('f-time', `${m.time.beats}/${m.time.unit}`);
   set('f-tempo', m.tempo ?? '');
-  $('song-summary').textContent = `곡 정보 · ${m.title || '제목 없음'} · ${prettyAccidentals(m.key)} · ${m.time.beats}/${m.time.unit}`;
+  $('head-edit').hidden = !editable(); // 조옮김 보기 중에는 renderChart가 그린 머리말(원래 키 › 새 키)
+  $('f-title').classList.toggle('blank', !m.title);
+  $('f-artist').classList.toggle('blank', !m.artist);
+  $('f-tempo').closest('.tempo').classList.toggle('blank', !m.tempo);
+  for (const id of ['f-key', 'f-time', 'f-tempo']) fitWidth($(id));
+}
+
+/** 머리말의 키·박자·템포 칸을 글자 길이에 맞춘다 (select는 가장 긴 항목 폭이 기본이라 틈이 생김) */
+const measureCtx = document.createElement('canvas').getContext('2d');
+function fitWidth(el) {
+  const text = el.tagName === 'SELECT' ? el.selectedOptions[0]?.text || '' : el.value || el.placeholder;
+  const cs = getComputedStyle(el);
+  measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const w = Math.ceil(measureCtx.measureText(text).width);
+  el.style.width = `calc(${w}px + ${cs.paddingLeft} + ${cs.paddingRight} + 4px)`;
+}
+
+/** 새 악보면 제목 칸으로 (키보드가 튀어나오지 않게 마우스 기기만) */
+function focusTitle() {
+  if (window.matchMedia('(pointer: fine)').matches) $('f-title').focus();
 }
 
 function renderPanel() {
@@ -635,9 +654,18 @@ $('f-time').addEventListener('change', (e) => {
   render();
 });
 $('f-tempo').addEventListener('change', (e) => {
-  const n = Number(e.target.value);
-  edit(() => { doc.meta.tempo = n > 0 ? n : null; });
+  const n = Math.round(Number(e.target.value));
+  edit(() => { doc.meta.tempo = n > 0 ? Math.min(Math.max(n, 20), 400) : null; });
+  e.target.value = doc.meta.tempo ?? '';
+  fitWidth(e.target);
 });
+$('f-tempo').addEventListener('input', (e) => fitWidth(e.target));
+// 머리말 입력 칸: Enter로 확정하고 빠져나옴
+for (const id of ['f-title', 'f-artist', 'f-tempo']) {
+  $(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.target.blur(); }
+  });
+}
 
 // 조옮김
 function setTranspose(n) {
@@ -664,7 +692,7 @@ $('btn-new').addEventListener('click', async () => {
   edit(() => { doc = newDoc(); });
   view.semitones = 0;
   select(0, 0);
-  $('songinfo').open = true;
+  focusTitle();
 });
 
 /** 파일 이름: 제목 (+ 조옮김한 키) */
@@ -894,7 +922,6 @@ const tut = createTutorial({
   getCtx: () => ({
     doc, sel, view, events: tutEvents, beatRect,
     panelOpen: !$('panel').hidden && !$('editor').hidden,
-    songinfoOpen: $('songinfo').open,
   }),
   onExit: () => {
     markTutorialDone();
@@ -910,12 +937,10 @@ function openTutorial() {
   resetEditorState(sampleDoc()); // 예시 곡 (저장하지 않음)
   showView('editor');
   $('btn-home').hidden = true;
-  $('songinfo').open = false;
   render();
   tut.begin();
   window.scrollTo(0, 0);
 }
-$('songinfo').addEventListener('toggle', () => tut.poke());
 $('btn-help').addEventListener('click', () => startTutorial(location.hash || '#/'));
 $('home-help').addEventListener('click', () => startTutorial('#/'));
 
@@ -939,7 +964,7 @@ async function openCloud(id, seq) {
   cloud.lastSaved = JSON.stringify(doc);
   cloud.failed = false;
   render();
-  if (!doc.meta.title && doc.sections.every((s) => s.measures.every((mm) => !mm.chords.length))) $('songinfo').open = true;
+  if (!doc.meta.title && doc.sections.every((s) => s.measures.every((mm) => !mm.chords.length))) focusTitle();
 }
 
 async function createAndOpen(nextDoc) {

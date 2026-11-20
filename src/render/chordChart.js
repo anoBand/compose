@@ -12,7 +12,8 @@ const pretty = (s) => esc(prettyAccidentals(s));
 
 /**
  * @param model parseChart() 결과
- * @param view  { semitones, altSpelling, showOriginal }
+ * @param view  { semitones, altSpelling, showOriginal, hideHead }
+ *              hideHead: 머리말을 그리지 않음 (편집기는 고칠 수 있는 머리말을 따로 둔다)
  */
 export function renderChart(model, view = {}) {
   const semitones = view.semitones ?? 0;
@@ -31,7 +32,7 @@ export function renderChart(model, view = {}) {
   const metaBits = [`${beats}/${unit}`];
   if (model.meta.tempo) metaBits.push(`${model.meta.tempo} BPM`);
 
-  const head = `
+  const head = view.hideHead ? '' : `
     <header class="chart-head">
       ${model.meta.title ? `<h1>${esc(model.meta.title)}</h1>` : ''}
       ${model.meta.artist ? `<p class="artist">${esc(model.meta.artist)}</p>` : ''}
