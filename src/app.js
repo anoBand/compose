@@ -338,10 +338,10 @@ function renderPanel() {
   if (!tutorial) {
     const tg = document.createElement('button');
     tg.type = 'button';
-    tg.className = 'dia-toggle toggle';
-    tg.setAttribute('aria-pressed', String(sevenths));
-    tg.title = '3화음 / 7화음 바꾸기';
-    tg.innerHTML = `<small>${sevenths ? '7화음' : '3화음'}</small>${sevenths ? '7th' : '3rd'}`;
+    tg.className = 'dia-toggle';
+    tg.title = sevenths ? '지금 7화음 (누르면 3화음)' : '지금 3화음 (누르면 7화음)';
+    tg.setAttribute('aria-label', tg.title);
+    tg.innerHTML = `<span${sevenths ? '' : ' class="on"'}>3</span><i>/</i><span${sevenths ? ' class="on"' : ''}>7</span>`;
     tg.addEventListener('click', () => { store.set(DIA7_KEY, sevenths ? '0' : '1'); renderPanel(); });
     dia.append(tg);
   }
