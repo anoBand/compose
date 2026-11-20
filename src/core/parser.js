@@ -1,7 +1,8 @@
 // 코드 악보 텍스트 문법 → 악보 모델
 //
-//   title: 제목          메타데이터 (title, artist, key, time, tempo)
+//   title: 제목          메타데이터 (title, artist, key, time, tempo, note)
 //   [Verse]             구간 시작
+//   > 메모               구간 메모 (구간 앞이면 곡 메모). 여러 줄이면 이어 붙임
 //   | C | G/B | Am F |  마디 줄 (한 줄 = 화면의 한 행)
 //   |: C . Am . :|x2    반복 / 각 토큰 1박, "." = 앞 코드 유지
 //   | % |               앞 마디 반복
@@ -10,7 +11,8 @@
 
 import { parseChord, parseKey } from './music.js';
 
-const META_KEYS = new Set(['title', 'artist', 'key', 'time', 'tempo']);
+const META_KEYS = new Set(['title', 'artist', 'key', 'time', 'tempo', 'note']);
+const addLine = (prev, line) => (prev ? `${prev}\n${line}` : line);
 const BAR_RE = /\|:|:\|(?:x(\d+))?|\|\||\||\{\d+\/\d+\}|[^\s|{]+/g;
 
 function parseTime(str) {
@@ -24,7 +26,7 @@ function parseTime(str) {
 
 export function parseChart(text) {
   const errors = [];
-  const meta = { title: '', artist: '', key: parseKey('C'), keyText: 'C', time: { beats: 4, unit: 4 }, tempo: null };
+  const meta = { title: '', artist: '', key: parseKey('C'), keyText: 'C', time: { beats: 4, unit: 4 }, tempo: null, note: '' };
   const sections = [];
   let current = null;
   let time = meta.time;
@@ -34,7 +36,7 @@ export function parseChart(text) {
 
   const ensureSection = () => {
     if (!current) {
-      current = { name: '', rows: [] };
+      current = { name: '', note: '', rows: [] };
       sections.push(current);
     }
     return current;
@@ -63,16 +65,26 @@ export function parseChart(text) {
         const n = Number(v);
         if (!Number.isFinite(n) || n <= 0) errors.push({ line: lineNo, message: `템포 형식 오류: "${v}"` });
         else meta.tempo = n;
+      } else if (k === 'note') {
+        meta.note = addLine(meta.note, v);
       } else {
         meta[k] = v;
       }
       return;
     }
 
+    // 메모: 구간 안이면 구간 메모, 아니면 곡 메모
+    if (line.startsWith('>')) {
+      const text = line.slice(1).trim();
+      if (current) current.note = addLine(current.note, text);
+      else meta.note = addLine(meta.note, text);
+      return;
+    }
+
     // 구간
     const sec = /^\[(.+)\]$/.exec(line);
     if (sec) {
-      current = { name: sec[1].trim(), rows: [] };
+      current = { name: sec[1].trim(), note: '', rows: [] };
       sections.push(current);
       return;
     }

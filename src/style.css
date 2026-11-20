@@ -114,8 +114,24 @@ input, select {
 .head-edit #f-tempo { margin-left: 0; -moz-appearance: textfield; }
 .head-edit #f-tempo::-webkit-inner-spin-button, .head-edit #f-tempo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .head-edit .tempo.blank { opacity: .7; }
+
+/* 메모: 곡 메모(머리말 아래), 구간 메모(구간 이름 오른쪽) */
+.song-note, .sec-note { color: var(--muted); font-size: .9rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.song-note { margin: .55rem 0 0; }
+.sec-head { display: flex; align-items: flex-start; gap: .6rem; margin: 0 0 .5rem; }
+.sec-head .sec-name { margin: 0; flex: none; }
+.sec-note { margin: .05rem 0 0; flex: 1; min-width: 0; font-size: .85rem; }
+.note-input, .sec-note-input {
+  display: block; width: 100%; resize: none; overflow: hidden; font-family: inherit; color: var(--muted);
+  background: transparent; min-height: 0; border: 1px dashed transparent; border-radius: 6px;
+  padding: .15rem .3rem; margin-left: -.3rem;
+}
+.sec-note-input { margin: -.15rem 0 0; }
+.note-input:hover, .sec-note-input:hover { border-color: var(--line); }
+.note-input:focus, .sec-note-input:focus { outline: none; border-style: solid; border-color: var(--accent); background: var(--panel); color: var(--ink); }
+.note-input::placeholder, .sec-note-input::placeholder { color: var(--muted); opacity: .55; }
 @media (hover: none) { /* 터치 기기: 고칠 수 있다는 표시를 늘 보이게 */
-  .head-edit input, .head-edit select { border-bottom: 1px dashed var(--line); border-radius: 0; }
+  .head-edit input, .head-edit select, .note-input, .sec-note-input { border-bottom: 1px dashed var(--line); border-radius: 0; }
 }
 .empty { color: var(--muted); }
 
@@ -375,7 +391,8 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
   .topbar, .viewbar, .panel, .lock-note, .toast, .home, .busy { display: none !important; }
   .chart, .head-edit, .head-edit + .chart { padding: 0; }
   .head-edit { margin-bottom: 1.5rem; }
-  .head-edit input, .head-edit select { border-color: transparent !important; }
+  .head-edit input, .head-edit select, .note-input, .sec-note-input { border-color: transparent !important; }
+  .sec-note-input.blank { display: none; }
   .head-edit .blank { display: none; } /* 비어 있는 제목·아티스트·템포는 인쇄하지 않음 */
   .head-edit .blank + .dot, .head-edit .dot:has(+ .blank) { display: none; }
   .m.sel { background: none; box-shadow: none; }

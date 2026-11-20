@@ -182,11 +182,14 @@ document.addEventListener('visibilitychange', () => {
 
 /** 문서 변경은 모두 여기를 거친다 (실행 취소 기록) */
 function edit(fn) {
+  pushUndo();
+  fn(doc);
+  render();
+}
+function pushUndo() {
   undoStack.push(JSON.stringify(doc));
   if (undoStack.length > 200) undoStack.shift();
   redoStack.length = 0;
-  fn(doc);
-  render();
 }
 
 function undo() {
@@ -224,7 +227,8 @@ const chartEl = $('chart');
 
 function render() {
   const model = docToModel(doc);
-  chartEl.innerHTML = renderChart(model, { ...view, selected: editable() ? sel : null, hideHead: editable() });
+  chartEl.innerHTML = renderChart(model, { ...view, selected: editable() ? sel : null, hideHead: editable(), editNotes: editable() });
+  chartEl.querySelectorAll('.sec-note-input').forEach(autosize);
   markBeat();
   renderTransposeBar(model);
   renderSongInfo();
@@ -258,6 +262,9 @@ function renderSongInfo() {
   set('f-key', m.key);
   set('f-time', `${m.time.beats}/${m.time.unit}`);
   set('f-tempo', m.tempo ?? '');
+  set('f-note', m.note || '');
+  $('f-note').classList.toggle('blank', !m.note);
+  autosize($('f-note'));
   $('head-edit').hidden = !editable(); // 조옮김 보기 중에는 renderChart가 그린 머리말(원래 키 › 새 키)
   $('f-title').classList.toggle('blank', !m.title);
   $('f-artist').classList.toggle('blank', !m.artist);
@@ -273,6 +280,12 @@ function fitWidth(el) {
   measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   const w = Math.ceil(measureCtx.measureText(text).width);
   el.style.width = `calc(${w}px + ${cs.paddingLeft} + ${cs.paddingRight} + 4px)`;
+}
+
+/** 메모 칸 높이를 내용에 맞춘다 */
+function autosize(el) {
+  el.style.height = 'auto';
+  if (el.scrollHeight) el.style.height = `${el.scrollHeight + 2}px`;
 }
 
 /** 새 악보면 제목 칸으로 (키보드가 튀어나오지 않게 마우스 기기만) */
@@ -450,7 +463,7 @@ function act(name) {
       const name = window.prompt('새 구간 이름', suggestSectionName());
       if (name === null) return;
       edit(() => {
-        doc.sections.splice(sel.s + 1, 0, { name: name.trim(), measures: [newMeasure(), newMeasure(), newMeasure(), newMeasure()] });
+        doc.sections.splice(sel.s + 1, 0, { name: name.trim(), note: '', measures: [newMeasure(), newMeasure(), newMeasure(), newMeasure()] });
       });
       select(sel.s + 1, 0);
       break;
@@ -459,6 +472,13 @@ function act(name) {
       const name = window.prompt('구간 이름', sec.name);
       if (name === null) return;
       edit(() => { sec.name = name.trim(); });
+      break;
+    }
+    case 'sec-note': {
+      const el = chartEl.querySelector(`.sec-note-input[data-note-sec="${sel.s}"]`);
+      if (!el) return;
+      el.focus();
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       break;
     }
     case 'sec-del':
@@ -586,6 +606,7 @@ function toast(msg) {
 
 // ───────── 이벤트 ─────────
 chartEl.addEventListener('click', (e) => {
+  if (e.target.closest('.sec-note-input')) return; // 메모 칸을 누를 때 다시 그리면 포커스를 잃음
   const mEl = e.target.closest('.m[data-s]');
   if (mEl) {
     if (!editable()) return toast('조옮김 보기 중에는 편집할 수 없어요');
@@ -660,6 +681,30 @@ $('f-tempo').addEventListener('change', (e) => {
   fitWidth(e.target);
 });
 $('f-tempo').addEventListener('input', (e) => fitWidth(e.target));
+// 메모(곡·구간): 입력할 때마다 저장하고 악보는 다시 그리지 않는다 (포커스 유지).
+// 실행 취소 기록은 칸에 들어가서 처음 고칠 때 한 번만 남긴다.
+let noteUndoPushed = false;
+function noteInput(el, apply) {
+  if (!noteUndoPushed) { pushUndo(); noteUndoPushed = true; $('btn-undo').disabled = false; $('btn-redo').disabled = true; }
+  apply(el.value.replace(/\s+$/, ''));
+  el.classList.toggle('blank', !el.value.trim());
+  autosize(el);
+  persist();
+}
+document.addEventListener('focusin', (e) => {
+  if (e.target.matches('#f-note, .sec-note-input')) noteUndoPushed = false;
+});
+$('f-note').addEventListener('input', (e) => noteInput(e.target, (v) => { doc.meta.note = v; }));
+chartEl.addEventListener('input', (e) => {
+  const el = e.target.closest('.sec-note-input');
+  if (el) noteInput(el, (v) => { doc.sections[Number(el.dataset.noteSec)].note = v; });
+});
+// 메모 칸에서 Esc 또는 Ctrl+Enter로 빠져나옴 (Enter는 줄바꿈)
+document.addEventListener('keydown', (e) => {
+  if (!e.target.matches?.('#f-note, .sec-note-input')) return;
+  if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.target.blur(); }
+});
+
 // 머리말 입력 칸: Enter로 확정하고 빠져나옴
 for (const id of ['f-title', 'f-artist', 'f-tempo']) {
   $(id).addEventListener('keydown', (e) => {

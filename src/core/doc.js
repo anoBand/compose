@@ -2,8 +2,8 @@
 //
 // doc = {
 //   version: 1,
-//   meta: { title, artist, key: 'C', time: { beats, unit }, tempo },
-//   sections: [{ name, measures: [{
+//   meta: { title, artist, key: 'C', time: { beats, unit }, tempo, note },   // note: 곡 메모 (여러 줄)
+//   sections: [{ name, note, measures: [{                                   // note: 구간 메모
 //     chords: [{ beat, text }],   // beat: 0부터, 다음 코드 전까지 유지
 //     simile, repeatStart, repeatEnd, repeatCount, doubleBar,
 //     time,                       // 이 마디부터 박자 변경 (없으면 null)
@@ -26,8 +26,8 @@ export function newMeasure(chords = []) {
 export function newDoc() {
   return {
     version: DOC_VERSION,
-    meta: { title: '', artist: '', key: 'C', time: { beats: 4, unit: 4 }, tempo: null },
-    sections: [{ name: 'Verse', measures: [newMeasure(), newMeasure(), newMeasure(), newMeasure()] }],
+    meta: { title: '', artist: '', key: 'C', time: { beats: 4, unit: 4 }, tempo: null, note: '' },
+    sections: [{ name: 'Verse', note: '', measures: [newMeasure(), newMeasure(), newMeasure(), newMeasure()] }],
   };
 }
 
@@ -42,11 +42,13 @@ export function normalizeDoc(raw) {
   const meta = { ...base.meta, ...(raw.meta || {}) };
   if (!parseKey(meta.key)) meta.key = 'C';
   if (!meta.time || !(meta.time.beats > 0)) meta.time = base.meta.time;
+  meta.note = String(meta.note ?? '');
   return {
     version: DOC_VERSION,
     meta,
     sections: raw.sections.map((s) => ({
       name: String(s.name ?? ''),
+      note: String(s.note ?? ''),
       measures: (s.measures || []).map((m) => ({
         ...newMeasure(),
         ...m,
@@ -101,7 +103,7 @@ export function docToModel(doc) {
       }
     });
     if (row.length) rows.push(row);
-    return { name: sec.name, rows };
+    return { name: sec.name, note: sec.note || '', rows };
   });
 
   return { meta, sections, errors: [] };
@@ -116,9 +118,11 @@ export function modelToDoc(model) {
     key: model.meta.keyText || 'C',
     time: { ...model.meta.time },
     tempo: model.meta.tempo ?? null,
+    note: model.meta.note || '',
   };
   doc.sections = model.sections.map((s) => ({
     name: s.name,
+    note: s.note || '',
     measures: s.rows.flatMap((row) => row.map((m, i) => ({
       ...newMeasure(m.simile ? [] : m.chords.map((c) => ({ beat: c.beat, text: c.text }))),
       simile: m.simile,

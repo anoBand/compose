@@ -54,7 +54,9 @@ function headerBlock(ctx, model, view) {
   if (meta.tempo) rest.push(`${meta.tempo} BPM`);
   metaParts.push({ t: `  ·  ${rest.join('  ·  ')}`, c: MUTED, w: 400 });
 
-  const height = titleLines.length * 38 + (meta.artist ? 26 : 0) + 30 + 18;
+  ctx.font = font(14);
+  const noteLines = noteToLines(ctx, meta.note, CONTENT_W);
+  const height = titleLines.length * 38 + (meta.artist ? 26 : 0) + 30 + (noteLines.length ? noteLines.length * 20 + 8 : 0) + 18;
   return {
     height,
     draw(c, y) {
@@ -75,11 +77,36 @@ function headerBlock(ctx, model, view) {
         c.fillText(p.t, x, yy + 22);
         x += c.measureText(p.t).width;
       }
+      c.font = font(14);
+      c.fillStyle = MUTED;
+      noteLines.forEach((l, i) => c.fillText(l, MX, yy + 30 + 22 + i * 20));
     },
   };
 }
 
-function sectionLabelHeight(name) { return name ? 34 : 0; }
+/** 메모(여러 줄) → 폭에 맞춰 나눈 줄 목록. 빈 줄은 유지 */
+function noteToLines(ctx, note, maxW) {
+  if (!note) return [];
+  return note.split('\n').flatMap((p) => (p.trim() ? wrapText(ctx, p, maxW) : ['']));
+}
+
+/** 구간 머리: 이름 상자 + 오른쪽에 메모 */
+function sectionHead(ctx, sec) {
+  if (!sec.name && !sec.note) return { height: 0, draw() {} };
+  ctx.font = font(13, 700);
+  const noteX = MX + (sec.name ? ctx.measureText(sec.name).width + 18 + 10 : 0);
+  ctx.font = font(13);
+  const lines = noteToLines(ctx, sec.note, MX + CONTENT_W - noteX);
+  return {
+    height: Math.max(sec.name ? 22 : 0, lines.length * 18 + 2) + 12,
+    draw(c, y) {
+      drawSectionLabel(c, sec.name, y);
+      c.font = font(13);
+      c.fillStyle = MUTED;
+      lines.forEach((l, i) => c.fillText(l, noteX, y + 16 + i * 18));
+    },
+  };
+}
 
 function drawSectionLabel(c, name, y) {
   if (!name) return;
@@ -230,10 +257,11 @@ function buildBlocks(ctx, model, view) {
   };
   const blocks = [headerBlock(ctx, model, view)];
   model.sections.forEach((sec, si) => {
-    const labelH = sectionLabelHeight(sec.name);
+    const head = sectionHead(ctx, sec);
+    const labelH = head.height;
     const topGap = si === 0 ? 0 : 18;
     if (!sec.rows.length) {
-      blocks.push({ height: topGap + labelH, gapTop: topGap, draw: (c, y) => drawSectionLabel(c, sec.name, y + topGap) });
+      blocks.push({ height: topGap + labelH, gapTop: topGap, draw: (c, y) => head.draw(c, y + topGap) });
       return;
     }
     sec.rows.forEach((row, ri) => {
@@ -243,7 +271,7 @@ function buildBlocks(ctx, model, view) {
           height: topGap + labelH + rb.height,
           gapTop: topGap,
           draw(c, y) {
-            drawSectionLabel(c, sec.name, y + topGap);
+            head.draw(c, y + topGap);
             rb.draw(c, y + topGap + labelH);
           },
         });

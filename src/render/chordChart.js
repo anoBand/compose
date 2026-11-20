@@ -12,7 +12,8 @@ const pretty = (s) => esc(prettyAccidentals(s));
 
 /**
  * @param model parseChart() 결과
- * @param view  { semitones, altSpelling, showOriginal, hideHead }
+ * @param view  { semitones, altSpelling, showOriginal, hideHead, editNotes }
+ *              editNotes: 구간 메모를 입력 칸으로 (메모가 있거나 선택한 구간만)
  *              hideHead: 머리말을 그리지 않음 (편집기는 고칠 수 있는 머리말을 따로 둔다)
  */
 export function renderChart(model, view = {}) {
@@ -38,7 +39,16 @@ export function renderChart(model, view = {}) {
       ${model.meta.artist ? `<p class="artist">${esc(model.meta.artist)}</p>` : ''}
       <p class="chart-meta"><span class="key${moved ? ' moved' : ''}">${keyLine}</span>
         <span class="dot">·</span><span>${metaBits.join(' · ')}</span></p>
+      ${model.meta.note ? `<p class="song-note">${esc(model.meta.note)}</p>` : ''}
     </header>`;
+
+  const secNote = (s, si) => {
+    if (view.editNotes && (s.note || view.selected?.s === si)) {
+      return `<textarea class="sec-note sec-note-input${s.note ? '' : ' blank'}" data-note-sec="${si}" rows="1"
+        placeholder="구간 메모" aria-label="${esc(s.name || '구간')} 메모" spellcheck="false">${esc(s.note)}</textarea>`;
+    }
+    return s.note ? `<p class="sec-note">${esc(s.note)}</p>` : '';
+  };
 
   const chordHtml = (c) => {
     const pos = `data-b="${c.beat}" data-d="${c.duration}"`;
@@ -79,7 +89,7 @@ export function renderChart(model, view = {}) {
 
   const sections = model.sections.map((s, si) => `
     <section class="sec${view.selected?.s === si ? ' cur' : ''}" data-sec="${si}">
-      ${s.name ? `<h2 class="sec-name">${esc(s.name)}</h2>` : ''}
+      ${s.name || secNote(s, si) ? `<div class="sec-head">${s.name ? `<h2 class="sec-name">${esc(s.name)}</h2>` : ''}${secNote(s, si)}</div>` : ''}
       ${s.rows.length === 0 ? '<p class="empty">빈 구간</p>' : ''}
       ${s.rows.map((row) => `<div class="row">${row.map(measureHtml).join('')}</div>`).join('')}
     </section>`).join('');

@@ -90,6 +90,7 @@
       <span class="sep"></span>
       <button type="button" data-act="sec-add">＋ 구간</button>
       <button type="button" data-act="sec-rename">구간 이름</button>
+      <button type="button" data-act="sec-note">구간 메모</button>
       <button type="button" data-act="sec-del">구간 삭제</button>
     </div>
   </div>
@@ -107,6 +108,7 @@
         <span class="dot">·</span>
         <span class="tempo"><input id="f-tempo" type="number" min="20" max="400" inputmode="numeric" placeholder="템포" aria-label="템포 (BPM)" title="템포 (BPM)" enterkeyhint="done"> BPM</span>
       </p>
+      <textarea id="f-note" class="song-note note-input" rows="1" placeholder="곡 메모 (예: 카포 2, 셔플 느낌, 엔딩은 페이드아웃)" aria-label="곡 메모" spellcheck="false"></textarea>
     </header>
     <article id="chart" class="chart"></article>
   </main>
@@ -158,7 +160,9 @@
       <details class="help">
         <summary>텍스트 문법</summary>
         <pre>title: 제목   key: C   time: 4/4   tempo: 90
+note: 곡 메모
 [Verse]                 구간
+> 구간 메모              (구간 앞이면 곡 메모)
 | C | G/B | Am | F G |  한 줄 = 한 행
 | C . . G |             토큰 1개 = 1박, "." = 유지
 |: Am | % :|x3          반복, % = 앞 마디 반복
