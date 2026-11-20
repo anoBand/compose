@@ -54,9 +54,10 @@ function headerBlock(ctx, model, view) {
   if (meta.tempo) rest.push(`${meta.tempo} BPM`);
   metaParts.push({ t: `  ·  ${rest.join('  ·  ')}`, c: MUTED, w: 400 });
 
-  ctx.font = font(14);
-  const noteLines = noteToLines(ctx, meta.note, CONTENT_W);
-  const height = titleLines.length * 38 + (meta.artist ? 26 : 0) + 30 + (noteLines.length ? noteLines.length * 20 + 8 : 0) + 18;
+  ctx.font = font(15);
+  const noteLines = noteToLines(ctx, meta.note, CONTENT_W - 30);
+  const noteH = noteLines.length ? noteLines.length * 21 + 18 : 0; // 메모 상자 (왼쪽 굵은 선 + 옅은 배경)
+  const height = titleLines.length * 38 + 30 + (noteH ? noteH + 12 : 0) + 18;
   return {
     height,
     draw(c, y) {
@@ -64,12 +65,6 @@ function headerBlock(ctx, model, view) {
       c.fillStyle = INK;
       c.font = font(30, 700);
       for (const l of titleLines) { c.fillText(l, MX, yy + 30); yy += 38; }
-      if (meta.artist) {
-        c.font = font(16);
-        c.fillStyle = MUTED;
-        c.fillText(meta.artist, MX, yy + 18);
-        yy += 26;
-      }
       let x = MX;
       for (const p of metaParts) {
         c.font = font(15, p.w);
@@ -77,9 +72,16 @@ function headerBlock(ctx, model, view) {
         c.fillText(p.t, x, yy + 22);
         x += c.measureText(p.t).width;
       }
-      c.font = font(14);
-      c.fillStyle = MUTED;
-      noteLines.forEach((l, i) => c.fillText(l, MX, yy + 30 + 22 + i * 20));
+      if (noteH) {
+        const by = yy + 30 + 12;
+        c.fillStyle = '#f2f1ec';
+        roundRect(c, MX, by, CONTENT_W, noteH, 6);
+        c.fill();
+        c.fillStyle = INK;
+        c.fillRect(MX, by, 4, noteH);
+        c.font = font(15);
+        noteLines.forEach((l, i) => c.fillText(l, MX + 18, by + 9 + 15 + i * 21));
+      }
     },
   };
 }

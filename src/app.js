@@ -227,7 +227,7 @@ const chartEl = $('chart');
 
 function render() {
   const model = docToModel(doc);
-  chartEl.innerHTML = renderChart(model, { ...view, selected: editable() ? sel : null, hideHead: editable(), editNotes: editable() });
+  chartEl.innerHTML = renderChart(model, { ...view, selected: editable() ? sel : null, hideHead: editable(), editNotes: editable(), noteSec });
   chartEl.querySelectorAll('.sec-note-input').forEach(autosize);
   markBeat();
   renderTransposeBar(model);
@@ -258,7 +258,6 @@ function renderSongInfo() {
   const m = doc.meta;
   const set = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v; };
   set('f-title', m.title);
-  set('f-artist', m.artist);
   set('f-key', m.key);
   set('f-time', `${m.time.beats}/${m.time.unit}`);
   set('f-tempo', m.tempo ?? '');
@@ -267,7 +266,6 @@ function renderSongInfo() {
   autosize($('f-note'));
   $('head-edit').hidden = !editable(); // 조옮김 보기 중에는 renderChart가 그린 머리말(원래 키 › 새 키)
   $('f-title').classList.toggle('blank', !m.title);
-  $('f-artist').classList.toggle('blank', !m.artist);
   $('f-tempo').closest('.tempo').classList.toggle('blank', !m.tempo);
   for (const id of ['f-key', 'f-time', 'f-tempo']) fitWidth($(id));
 }
@@ -474,13 +472,10 @@ function act(name) {
       edit(() => { sec.name = name.trim(); });
       break;
     }
-    case 'sec-note': {
-      const el = chartEl.querySelector(`.sec-note-input[data-note-sec="${sel.s}"]`);
-      if (!el) return;
-      el.focus();
-      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    case 'sec-note':
+      openSectionNote(sel.s);
+      chartEl.querySelector(`.sec-note-input[data-note-sec="${sel.s}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       break;
-    }
     case 'sec-del':
       if (doc.sections.length === 1) return toast('마지막 구간은 지울 수 없어요');
       if (sec.measures.length && !window.confirm(`"${sec.name || '구간'}"과 마디 ${sec.measures.length}개를 지울까요?`)) return;
@@ -607,6 +602,11 @@ function toast(msg) {
 // ───────── 이벤트 ─────────
 chartEl.addEventListener('click', (e) => {
   if (e.target.closest('.sec-note-input')) return; // 메모 칸을 누를 때 다시 그리면 포커스를 잃음
+  const headEl = e.target.closest('.sec-head[data-head-sec]');
+  if (headEl) {
+    if (!editable()) return toast('조옮김 보기 중에는 편집할 수 없어요');
+    return openSectionNote(Number(headEl.dataset.headSec));
+  }
   const mEl = e.target.closest('.m[data-s]');
   if (mEl) {
     if (!editable()) return toast('조옮김 보기 중에는 편집할 수 없어요');
@@ -666,7 +666,6 @@ fillSelect($('f-time'), TIMES);
 fillSelect($('p-time'), ['', ...TIMES], (t) => t || '이어서');
 
 $('f-title').addEventListener('change', (e) => edit(() => { doc.meta.title = e.target.value.trim(); }));
-$('f-artist').addEventListener('change', (e) => edit(() => { doc.meta.artist = e.target.value.trim(); }));
 $('f-key').addEventListener('change', (e) => edit(() => { doc.meta.key = e.target.value; }));
 $('f-time').addEventListener('change', (e) => {
   const [beats, unit] = e.target.value.split('/').map(Number);
@@ -684,6 +683,21 @@ $('f-tempo').addEventListener('input', (e) => fitWidth(e.target));
 // 메모(곡·구간): 입력할 때마다 저장하고 악보는 다시 그리지 않는다 (포커스 유지).
 // 실행 취소 기록은 칸에 들어가서 처음 고칠 때 한 번만 남긴다.
 let noteUndoPushed = false;
+let noteSec = null; // 구간 머리를 눌러 메모 칸을 연 구간 (칸에서 나오면 해제)
+function openSectionNote(s) {
+  let el = chartEl.querySelector(`.sec-note-input[data-note-sec="${s}"]`);
+  if (!el) {
+    noteSec = s;
+    render();
+    el = chartEl.querySelector(`.sec-note-input[data-note-sec="${s}"]`);
+  }
+  if (!el) return;
+  el.focus();
+  el.setSelectionRange(el.value.length, el.value.length);
+}
+chartEl.addEventListener('focusout', (e) => {
+  if (e.target.matches('.sec-note-input')) noteSec = null; // 다음에 다시 그릴 때 빈 칸은 사라짐
+});
 function noteInput(el, apply) {
   if (!noteUndoPushed) { pushUndo(); noteUndoPushed = true; $('btn-undo').disabled = false; $('btn-redo').disabled = true; }
   apply(el.value.replace(/\s+$/, ''));
@@ -706,7 +720,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // 머리말 입력 칸: Enter로 확정하고 빠져나옴
-for (const id of ['f-title', 'f-artist', 'f-tempo']) {
+for (const id of ['f-title', 'f-tempo']) {
   $(id).addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.target.blur(); }
   });

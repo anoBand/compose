@@ -2,7 +2,7 @@
 //
 // doc = {
 //   version: 1,
-//   meta: { title, artist, key: 'C', time: { beats, unit }, tempo, note },   // note: 곡 메모 (여러 줄)
+//   meta: { title, artist(화면에서 뺌, 예전 악보 호환용), key: 'C', time: { beats, unit }, tempo, note },   // note: 곡 메모 (여러 줄)
 //   sections: [{ name, note, measures: [{                                   // note: 구간 메모
 //     chords: [{ beat, text }],   // beat: 0부터, 다음 코드 전까지 유지
 //     simile, repeatStart, repeatEnd, repeatCount, doubleBar,
