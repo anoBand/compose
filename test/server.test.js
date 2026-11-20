@@ -200,6 +200,33 @@ test('API: 사용자당 악보 수 제한', async (t) => {
   assert.equal((await req('POST', '/api/charts', { doc: newDoc() })).status, 201);
 });
 
+test('API: 휴지통은 최근 것만, 오래된 것은 정리 (만들기→지우기 반복으로 디스크 채우기 방지)', async (t) => {
+  const { req, dataDir } = await startServer(t, { trashMax: 3, trashDays: 30 });
+  await req('POST', '/api/login', { credential: makeToken() });
+  const trashDir = path.join(dataDir, 'users', '1234567890', 'charts', '.trash');
+  const ids = [];
+  for (let i = 0; i < 5; i++) {
+    const { id } = (await req('POST', '/api/charts', { doc: newDoc() })).body.chart;
+    assert.equal((await req('DELETE', `/api/charts/${id}`)).status, 200);
+    ids.push(id);
+    await new Promise((r) => setTimeout(r, 3)); // 지운 시각(파일 이름)이 겹치지 않게
+  }
+  let trash = await fs.readdir(trashDir);
+  assert.equal(trash.length, 3);
+  assert.deepEqual(trash.map((n) => n.split('.')[0]).sort(), ids.slice(2).sort()); // 최근 3개만 남음
+
+  // 30일 지난 것은 개수와 상관없이 지운다. 이름 형식이 다른 파일은 건드리지 않는다
+  const old = `${'a'.repeat(24)}.${Date.now() - 31 * 86400_000}.json`;
+  await fs.writeFile(path.join(trashDir, old), '{}');
+  await fs.writeFile(path.join(trashDir, 'memo.txt'), 'x');
+  const { id } = (await req('POST', '/api/charts', { doc: newDoc() })).body.chart;
+  await req('DELETE', `/api/charts/${id}`);
+  trash = await fs.readdir(trashDir);
+  assert.equal(trash.includes(old), false);
+  assert.equal(trash.includes('memo.txt'), true);
+  assert.equal(trash.filter((n) => n.endsWith('.json')).length, 3);
+});
+
 test('API: 튜토리얼 완료 기록 (계정 단위)', async (t) => {
   const { req, setCookie } = await startServer(t);
   assert.equal((await req('POST', '/api/me/tutorial')).status, 401);

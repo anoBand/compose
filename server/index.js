@@ -67,13 +67,13 @@ function cleanDoc(raw) {
 
 export function createApp(config) {
   const {
-    clientId = '', secret, allowedEmails = [], dataDir = './data', secureCookie = true, maxCharts,
+    clientId = '', secret, allowedEmails = [], dataDir = './data', secureCookie = true, maxCharts, trashMax, trashDays,
     getKey = createKeyStore(config.jwksUrl || GOOGLE_JWKS_URL), now = () => Date.now(),
   } = config;
   if (!secret || secret.length < 32) throw new Error('SESSION_SECRET은 32자 이상이어야 합니다');
   const allowed = new Set(allowedEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const isAllowed = (email) => allowed.size === 0 || allowed.has(email);
-  const store = createStore(dataDir, { maxCharts });
+  const store = createStore(dataDir, { maxCharts, trashMax, trashDays });
 
   const cookie = (value, maxAge) => [
     `${COOKIE}=${value}`, 'Path=/api', 'HttpOnly', 'SameSite=Lax', `Max-Age=${maxAge}`, secureCookie ? 'Secure' : '',

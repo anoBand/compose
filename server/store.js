@@ -1,5 +1,7 @@
 // 악보 저장소: DATA_DIR/users/<sub>/charts/<id>.json (사용자별 폴더, 악보 1개 = 파일 1개)
 // 지운 악보는 charts/.trash/ 로 옮긴다 (서버에서 되살릴 수 있게).
+// 휴지통은 악보 수 제한에 들어가지 않으므로, 지울 때마다 오래된 것(trashDays)과 넘친 것(trashMax)을 정리한다
+// ("만들기 → 지우기" 반복으로 디스크를 채우지 못하게).
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -7,6 +9,9 @@ import crypto from 'node:crypto';
 const SUB_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const ID_RE = /^[a-f0-9]{24}$/;
 export const DEFAULT_MAX_CHARTS = 200;
+export const DEFAULT_TRASH_MAX = 50;
+export const DEFAULT_TRASH_DAYS = 30;
+const TRASH_RE = /^([a-f0-9]{24})\.(\d+)\.json$/;
 
 export const isChartId = (id) => typeof id === 'string' && ID_RE.test(id);
 
@@ -42,7 +47,9 @@ export function summarize(rec) {
   };
 }
 
-export function createStore(dataDir, { maxCharts = DEFAULT_MAX_CHARTS } = {}) {
+export function createStore(dataDir, {
+  maxCharts = DEFAULT_MAX_CHARTS, trashMax = DEFAULT_TRASH_MAX, trashDays = DEFAULT_TRASH_DAYS,
+} = {}) {
   // 같은 파일에 대한 쓰기를 순서대로 처리 (프로세스 하나 기준)
   const locks = new Map();
   async function withLock(key, fn) {
@@ -75,6 +82,20 @@ export function createStore(dataDir, { maxCharts = DEFAULT_MAX_CHARTS } = {}) {
   }
 
   const profileFile = (sub) => path.join(userDir(sub), 'profile.json');
+
+  /** 휴지통: 최근 trashMax개만, trashDays일 넘은 것은 지운다 (파일 이름의 지운 시각 기준) */
+  async function pruneTrash(sub) {
+    const dir = path.join(chartsDir(sub), '.trash');
+    const cutoff = Date.now() - trashDays * 86400_000;
+    const items = (await fs.readdir(dir))
+      .map((n) => ({ n, t: Number(TRASH_RE.exec(n)?.[2]) }))
+      .filter((x) => x.t > 0)
+      .sort((a, b) => b.t - a.t);
+    const drop = items.filter((x, i) => i >= trashMax || x.t < cutoff);
+    await Promise.all(drop.map((x) => fs.unlink(path.join(dir, x.n)).catch((e) => {
+      if (e.code !== 'ENOENT') throw e;
+    })));
+  }
 
   return {
     async getProfile(sub) {
@@ -155,11 +176,12 @@ export function createStore(dataDir, { maxCharts = DEFAULT_MAX_CHARTS } = {}) {
         await ensureDirs(sub);
         try {
           await fs.rename(file, path.join(chartsDir(sub), '.trash', `${id}.${Date.now()}.json`));
-          return true;
         } catch (e) {
           if (e.code === 'ENOENT') return false;
           throw e;
         }
+        await pruneTrash(sub);
+        return true;
       });
     },
   };

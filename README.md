@@ -67,7 +67,7 @@ src/export.js            PDF/JPG: 캔버스에 직접 그림 (jsPDF는 src/vendo
 src/tutorial.js          따라 하기: 단계 정의(조건을 채우면 다음 단계), 강조 테두리·안내 카드
 server/index.js          API 서버 (Node 22+, 외부 의존성 없음): 로그인, 악보 CRUD
 server/auth.js           Google ID 토큰 검증(Google 공개키로 서명 확인), 세션 쿠키(HMAC)
-server/store.js          사용자별 JSON 파일 저장 (지운 악보는 .trash/ 로)
+server/store.js          사용자별 JSON 파일 저장 (지운 악보는 .trash/ 로, 최근 50개·30일만 보관)
 deploy/update.sh         서버 자동 배포 스크립트
 ```
 
