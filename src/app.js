@@ -920,6 +920,8 @@ function showView(name) {
   $('editor-actions').hidden = !inEditor;
   $('btn-home').hidden = !inEditor || !auth.enabled;
   $('account').hidden = inEditor || !auth.user;
+  // 테마 버튼은 홈에서만. 서버 없는 모드는 홈이 없어서 편집기에 둔다
+  $('tb-right').hidden = inEditor && auth.enabled;
   document.body.classList.toggle('in-editor', inEditor);
   if (!inEditor) {
     $('save-state').hidden = true;
@@ -963,6 +965,30 @@ function openLocal() {
   showView('editor');
   render();
 }
+
+// ───────── 테마 (라이트/다크) ─────────
+// 고르기 전에는 기기 설정을 따른다. 고르면 이 브라우저에 기록 (src/theme-init.js가 첫 화면 전에 적용)
+const THEME_KEY = 'compose:theme';
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+const isDark = () => (document.documentElement.dataset.theme || (darkQuery.matches ? 'dark' : 'light')) === 'dark';
+const SVG = (body) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+const ICON_SUN = SVG('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>');
+const ICON_MOON = SVG('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>');
+function updateThemeButton() {
+  const label = isDark() ? '라이트 모드로' : '다크 모드로';
+  $('btn-theme').innerHTML = isDark() ? ICON_SUN : ICON_MOON;
+  $('btn-theme').title = label;
+  $('btn-theme').setAttribute('aria-label', label);
+}
+$('btn-theme').addEventListener('click', () => {
+  const next = isDark() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  store.set(THEME_KEY, next);
+  updateThemeButton();
+  if (!$('home-guest').hidden && !$('home').hidden) renderGuest(); // Google 버튼 색도 맞춘다
+});
+darkQuery.addEventListener('change', updateThemeButton);
+updateThemeButton();
 
 // ───────── 따라 하기 ─────────
 // 게스트: 이 브라우저에서 처음 편집기를 열 때, 로그인 사용자: 계정으로 처음 로그인했을 때 자동으로 시작.
@@ -1212,7 +1238,7 @@ async function renderGuest() {
     await loadGsi();
     $('gsi-btn').innerHTML = '';
     window.google.accounts.id.renderButton($('gsi-btn'), {
-      theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko', width: 280,
+      theme: isDark() ? 'filled_black' : 'outline', size: 'large', shape: 'pill', text: 'signin_with', locale: 'ko', width: 280,
     });
   } catch (e) {
     loginMessage(e.message);

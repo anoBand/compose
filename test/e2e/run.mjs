@@ -54,11 +54,30 @@ await page.goto(BASE);
 await page.locator('#home-guest').waitFor();
 step('로그인 전 홈');
 await shot(page, '01-guest');
+assert.equal(await page.locator('#home-guest a[href="#/tutorial"]').count(), 0, '로그인 화면에 따라 하기 링크 없음');
+
+// 테마: 기기 설정(라이트) → 다크 → 새로고침해도 유지 → 라이트로 되돌림
+const themeOf = () => page.evaluate(() => [document.documentElement.dataset.theme || '', getComputedStyle(document.body).backgroundColor]);
+assert.equal(await page.locator('#btn-theme').isVisible(), true, '로그인 화면에 테마 버튼');
+const [, lightBg] = await themeOf();
+await page.click('#btn-theme');
+const [t1, darkBg] = await themeOf();
+assert.equal(t1, 'dark');
+assert.notEqual(darkBg, lightBg, '다크 모드 배경색');
+await page.reload();
+await page.locator('#home-guest').waitFor();
+assert.equal((await themeOf())[0], 'dark', '새로고침 뒤에도 다크');
+assert.equal(await page.locator('#btn-theme').getAttribute('aria-label'), '라이트 모드로');
+await shot(page, '01-guest-dark');
+await page.click('#btn-theme');
+assert.deepEqual(await themeOf(), ['light', lightBg]);
+step('로그인 화면: 따라 하기 링크 없음, 테마 버튼(다크 ↔ 라이트, 새로고침 뒤 유지)');
 
 await page.click('#fake-google');
 await page.locator('#home-user').waitFor();
 await page.waitForFunction(() => document.querySelector('#list-state').textContent.includes('아직'));
 assert.equal(await page.locator('#acct-name').textContent(), '테스터');
+assert.equal(await page.locator('#btn-theme').isVisible(), true, '내 악보 화면에 테마 버튼');
 step('로그인 → 빈 목록');
 await shot(page, '02-empty-list');
 
@@ -67,6 +86,7 @@ await page.waitForURL(/#\/c\/[a-f0-9]{24}$/);
 const chartId = page.url().split('/').pop();
 await page.locator('#editor').waitFor();
 await expectTitle(page, '');
+assert.equal(await page.locator('#btn-theme').isHidden(), true, '편집기에는 테마 버튼 없음');
 assert.equal(await page.evaluate(() => document.activeElement.id), 'f-title'); // 빈 새 악보는 제목 칸으로
 await page.fill('#f-title', '첫 번째 곡');
 await page.locator('#f-title').press('Tab');
@@ -277,6 +297,7 @@ const noapi = await newPage();
 await noapi.page.goto('http://127.0.0.1:8090/');
 await noapi.page.locator('#editor').waitFor();
 assert.equal(await noapi.page.locator('#btn-home').isHidden(), true);
+assert.equal(await noapi.page.locator('#btn-theme').isVisible(), true, '홈이 없으니 편집기에 테마 버튼');
 await expectTitle(noapi.page, '예시 곡');
 step('서버 없음 → 바로 로컬 편집기 (예전과 같음)');
 await noapi.ctx.close();

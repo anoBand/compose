@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Compose — 코드 악보</title>
+  <script src="src/theme-init.js"></script>
   <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
@@ -21,10 +22,13 @@
       <button id="btn-export" type="button">내보내기</button>
       <button id="btn-help" type="button" title="사용법 따라 하기" aria-label="사용법 따라 하기">?</button>
     </div>
-    <div class="account" id="account" hidden>
-      <img id="acct-pic" class="acct-pic" alt="" referrerpolicy="no-referrer" hidden>
-      <span id="acct-name" class="acct-name"></span>
-      <button id="btn-logout" type="button">로그아웃</button>
+    <div class="tb-right" id="tb-right">
+      <div class="account" id="account" hidden>
+        <img id="acct-pic" class="acct-pic" alt="" referrerpolicy="no-referrer" hidden>
+        <span id="acct-name" class="acct-name"></span>
+        <button id="btn-logout" type="button">로그아웃</button>
+      </div>
+      <button id="btn-theme" type="button"></button>
     </div>
   </header>
 
@@ -41,7 +45,6 @@
       <div id="gsi-btn" class="gsi-btn"></div>
       <p id="login-msg" class="err-text" hidden></p>
       <a id="btn-local" class="local-link" href="#/local">로그인 없이 쓰기 <small>(이 브라우저에만 저장)</small></a>
-      <a class="local-link" href="#/tutorial">처음이라면: 사용법 따라 하기 (2분)</a>
     </section>
 
     <section id="home-user" class="library" hidden>
